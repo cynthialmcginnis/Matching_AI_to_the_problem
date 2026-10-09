@@ -4,7 +4,7 @@ An interactive class session on how to choose the right kind of AI for a problem
 
 The whole session is one HTML file. There is nothing to install and nothing to build.
 
-**Open it:** `https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/`
+**Open it:** `https://cynthialmcginnis.github.io/Matching_AI_to_the_problem/`
 
 ## What it teaches
 
