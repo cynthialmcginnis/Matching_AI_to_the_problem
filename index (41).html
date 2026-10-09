@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Unit 1 Class Night</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a one-screen class console. Agenda rail on top, reading pane and controls left, live 3D chart right, navigation on the bottom. Colors borrow from an aeronautical chart: pale paper, chart blue, magenta. */
+:root{
+  --paper:#EDF1F3; --panel:#FFFFFF; --wash:#DDE6EC; --ink:#13283B; --muted:#55687A; --line:#C5D0D9;
+  --blue:#1C5FA5; --mag:#B0126B; --ok:#1E7A4F; --no:#B3261E; --on:#FFFFFF;
+  --t0:#2F7FD0; --t1:#D98A00; --t2:#2FA36B; --t3:#E0542B; --t4:#C2338B; --t5:#8266D9;
+  --ball-hi:#FFB08F; --ball-lo:#A53A1A;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0D1822; --panel:#152433; --wash:#1B2E40; --ink:#E6EEF4; --muted:#9DB0C0; --line:#2C4054;
+  --blue:#74B4F2; --mag:#F272B6; --ok:#5FD39A; --no:#FF8A80; --on:#0D1822; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --paper:#0D1822; --panel:#152433; --wash:#1B2E40; --ink:#E6EEF4; --muted:#9DB0C0; --line:#2C4054;
+  --blue:#74B4F2; --mag:#F272B6; --ok:#5FD39A; --no:#FF8A80; --on:#0D1822; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:clamp(16px,1.15vw,21px);line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--mag);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+
+.rail{display:flex;gap:4px;padding:10px 16px 8px;overflow-x:auto;border-bottom:1px solid var(--line)}
+.seg{flex:1 1 auto;text-align:left;background:transparent;border:0;border-top:4px solid var(--line);padding:6px 14px 2px 0;cursor:pointer}
+.seg b{display:block;font-family:var(--display);font-weight:600;font-size:1.05em;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.seg span{font-family:var(--mono);font-size:.68em;color:var(--muted);white-space:nowrap}
+.seg.past{border-top-color:var(--blue)}
+.seg.on{border-top-color:var(--mag)}
+.seg.on b{color:var(--mag)}
+
+.stage{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:0}
+.text{min-width:0;overflow-y:auto;padding:clamp(18px,2.2vw,36px) clamp(16px,2.6vw,44px)}
+.view{min-width:0;position:relative;overflow:hidden;background-color:var(--wash);
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:56px 56px;border-left:1px solid var(--line)}
+.view canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.view canvas:active{cursor:grabbing}
+.cap{position:absolute;left:14px;right:14px;bottom:12px;margin:0;font-family:var(--mono);font-size:.7em;color:var(--muted);pointer-events:none}
+.hint{position:absolute;right:12px;top:10px;font-family:var(--mono);font-size:.66em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);background:var(--panel);padding:3px 8px;border-radius:999px;pointer-events:none;transition:opacity .4s}
+.hint.off{opacity:0}
+.nogl .view,.noview .view{display:none}
+.nogl .stage,.noview .stage{grid-template-columns:minmax(0,1fr)}
+.noview .text{padding-inline:clamp(16px,7vw,150px)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:4px 56px;align-items:start}
+.cols>div{min-width:0}
+/* teaching blocks: a definition, an instruction, a question for the room */
+.def,.do,.ask{margin:0 0 14px;padding-top:8px;border-top:2px solid var(--ink);max-width:66ch}
+.def>b,.do>b,.ask>b{display:block;font-family:var(--mono);font-weight:500;font-size:.7em;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;color:var(--muted)}
+.def>b{color:var(--blue)}
+.ask{border-top-color:var(--mag)}
+.ask>b{color:var(--mag)}
+.ask p{font-size:1.16em;font-weight:500;line-height:1.35}
+.ask p.bigq{font-size:clamp(26px,2.9vw,50px);font-weight:600;line-height:1.14;max-width:22ch;text-wrap:balance}
+.def p,.do ol,.ask p{margin-bottom:6px}
+.do li{margin-bottom:3px}
+
+.kicker{margin:0 0 6px;font-family:var(--mono);font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--mag)}
+h1{margin:0 0 12px;font-family:var(--display);font-weight:700;font-size:clamp(32px,3.9vw,70px);line-height:.98;letter-spacing:.005em;text-transform:uppercase;text-wrap:balance}
+h2{margin:20px 0 8px;font-family:var(--display);font-weight:600;font-size:1.5em;line-height:1.1;text-transform:uppercase;letter-spacing:.02em}
+p{margin:0 0 12px;max-width:62ch}
+.lede{font-size:1.22em;line-height:1.35;font-weight:500}
+ul,ol{margin:0 0 12px;padding-left:1.2em;max-width:62ch}
+li{margin-bottom:6px}
+.muted{color:var(--muted)}
+.big{font-family:var(--display);font-weight:700;font-size:clamp(40px,5.2vw,92px);line-height:1;text-transform:uppercase}
+.clock{font-family:var(--mono);font-size:clamp(36px,4.4vw,80px);line-height:1;font-variant-numeric:tabular-nums}
+.clock.over{color:var(--no)}
+
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.btn,.chip{border:2px solid var(--ink);background:transparent;padding:.42em .9em;cursor:pointer;font-weight:600;border-radius:2px;text-decoration:none;display:inline-block}
+.btn.go{background:var(--mag);border-color:var(--mag);color:var(--on)}
+.btn:disabled{opacity:.4;cursor:default}
+.chip{border-color:var(--line);font-weight:500;padding:.3em .75em;border-radius:999px}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.chip.ok{border-color:var(--ok);background:transparent;color:var(--ok)}
+.chip.ok::before{content:"\2713\00a0"}
+.chip.no{border-color:var(--no);background:transparent;color:var(--no);text-decoration:line-through}
+.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.45em;vertical-align:baseline}
+.lnk{background:none;border:0;padding:0;font-weight:600;color:var(--blue);text-decoration:underline;cursor:pointer;text-align:left}
+
+.panel{background:var(--panel);border:1px solid var(--line);padding:14px 18px;margin:0 0 12px;max-width:66ch}
+.panel p:last-child,.panel ul:last-child{margin-bottom:0}
+.panel dt{font-family:var(--mono);font-size:.7em;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+.panel dt:first-child{margin-top:0}
+.panel dd{margin:2px 0 0}
+
+/* the hands-on strip: one control, one live readout */
+.ctl{border:2px solid var(--mag);padding:12px 16px;margin:0 0 12px;max-width:66ch}
+.ctl label{margin-top:0}
+.ctl .row{margin:6px 0 0}
+.read{margin:8px 0 0;font-family:var(--mono);font-size:.86em;font-variant-numeric:tabular-nums;max-width:none}
+.read b{color:var(--mag);font-weight:500}
+.ctl .say{margin:8px 0 0}
+
+.q{border-top:1px solid var(--line);padding:12px 0 4px;max-width:70ch}
+.qs{margin:0 0 8px;font-weight:500}
+.qn{font-family:var(--mono);color:var(--mag);margin-right:.6em}
+.qa{margin:8px 0 6px;padding-left:12px;border-left:3px solid var(--blue)}
+.q .chips{display:flex;flex-wrap:wrap;gap:6px}
+
+details.box{border:1px solid var(--line);background:var(--panel);margin:0 0 8px;max-width:66ch}
+details.box summary{cursor:pointer;padding:10px 14px;font-weight:600}
+details.box summary span{font-weight:400;color:var(--muted)}
+details.box p{padding:0 14px 12px;margin:0}
+
+.sheet{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:2px solid var(--ink);background:var(--panel);margin:0 0 14px}
+.sheet details{border:1px solid var(--line);padding:12px 14px;min-height:8.5em;min-width:0}
+.sheet summary{cursor:pointer;list-style:none}
+.sheet summary::-webkit-details-marker{display:none}
+.sheet summary b{display:block;font-family:var(--display);font-weight:700;font-size:1.35em;text-transform:uppercase;letter-spacing:.02em}
+.sheet summary span{display:block;color:var(--muted)}
+.sheet summary i{display:block;font-style:normal;font-family:var(--mono);font-size:.66em;letter-spacing:.1em;text-transform:uppercase;color:var(--mag);margin-top:6px}
+.sheet details[open] summary i{display:none}
+.sheet details p{margin:8px 0 0;padding-top:8px;border-top:2px solid var(--mag);font-weight:500}
+.tw{overflow-x:auto;margin:0 0 12px}
+table{border-collapse:collapse;width:100%;font-size:.9em}
+th{font-family:var(--mono);font-size:.74em;letter-spacing:.08em;text-transform:uppercase;text-align:left;color:var(--muted);padding:6px 10px 6px 0;border-bottom:2px solid var(--ink);white-space:nowrap}
+td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;padding-right:0}
+tr.hl td{font-weight:600}
+tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--mag);padding-left:10px}
+
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:0 0 12px;max-width:70ch}
+.duo .panel{margin:0}
+.steps{list-style:none;padding:0;counter-reset:s}
+.steps li{counter-increment:s;padding:8px 0 8px 2.6em;border-top:1px solid var(--line);position:relative;margin:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:4px;font-family:var(--display);font-weight:700;font-size:1.6em;color:var(--mag)}
+
+label{display:block;font-family:var(--mono);font-size:.7em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=url],input[type=time],input[type=number],select,textarea{width:100%;max-width:44ch;background:var(--panel);border:1px solid var(--line);padding:.4em .6em;border-radius:2px}
+input[type=range]{display:block;width:100%;max-width:46ch;accent-color:var(--mag);margin:2px 0}
+textarea{min-height:7em;resize:vertical}
+.tag-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,12em);gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;max-width:66ch}
+.tag-row select{max-width:none}
+.tag-row small{display:block;color:var(--muted)}
+.tally{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 12px;font-family:var(--mono);font-size:.78em}
+.calc{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;max-width:60ch;margin:0 0 12px}
+
+.nav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+body:not(.inst) .inst{display:none!important}
+body.inst .stu{display:none!important}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.nav .count{font-family:var(--mono);font-size:.8em;font-variant-numeric:tabular-nums}
+.nav .now{margin-left:auto;font-family:var(--mono);font-size:.8em;color:var(--muted);text-align:right}
+
+.flyball{position:fixed;left:0;top:0;width:88px;height:88px;border-radius:50%;background:radial-gradient(circle at 32% 30%,var(--ball-hi),var(--t3) 58%,var(--ball-lo));pointer-events:none;z-index:50;will-change:transform}
+
+@media (max-width:820px){
+  .sheet{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
+  .stage{display:block;overflow-y:auto}
+  .view{height:36vh;min-height:210px;border-left:0;border-bottom:1px solid var(--line)}
+  .text{overflow:visible}
+  .tag-row{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="app" id="app">
+  <nav class="rail" id="rail" aria-label="Tonight's agenda"></nav>
+  <div class="stage">
+    <main class="text" id="text" tabindex="-1"></main>
+    <aside class="view" id="view"><div id="gl"></div><span class="hint" id="hint">Drag to turn</span><p class="cap" id="cap"></p></aside>
+  </div>
+  <div class="nav">
+    <button class="btn" id="prev" type="button">Back</button>
+    <button class="btn go" id="next" type="button">Next</button>
+    <span class="count" id="count"></span>
+    <button class="btn" id="instBtn" type="button" aria-pressed="false">Instructor view</button>
+    <span class="now" id="now"></span>
+  </div>
+</div>
+
+<!-- ===================== SCREENS ===================== -->
+<template id="s-welcome" data-seg="welcome" data-view="off">
+  <p class="kicker">Week 1 · Tuesday, October 20</p>
+  <h1>Matching AI to the problem</h1>
+  <p class="lede">Most failed AI projects do not fail because the technology is weak. They fail because someone picked the tool before naming the problem.</p>
+  <div class="cols">
+    <div>
+      <h2>Tonight</h2>
+      <div class="tw"><table id="agenda"></table></div>
+      <details class="box inst"><summary>Class setup <span>(instructor)</span></summary>
+        <p><label for="setStart">Class starts at</label><input type="time" id="setStart">
+        <label for="setIntro">Minutes for the Loop</label><select id="setIntro"><option>30</option><option>35</option><option>40</option><option>45</option></select>
+        <label for="setLink">Escape room link (https)</label><input type="url" id="setLink" placeholder="https://"></p>
+        <p class="muted">The lecture takes whatever the Loop does not use. Settings stay on this device only.</p>
+      </details>
+    </div>
+    <div>
+      <h2>By 9:00 you can</h2>
+      <ol>
+        <li>Identify the common problem types AI addresses.</li>
+        <li>Match an AI technology to the problem in front of you.</li>
+        <li>Recognize what a successful AI application looks like in different industries.</li>
+      </ol>
+  <div class="ask"><b>Warm-up</b><p>Name one AI system you used today. What task was it doing for you?</p></div>
+    </div>
+  </div>
+</template>
+
+<template id="s-loop" data-seg="loop" data-cap="One seat for each student in the class.">
+  <p class="kicker">The Loop · <span data-time="loop.start"></span> to <span data-time="loop.end"></span></p>
+  <h1>Around the Loop</h1>
+  <p class="lede">You know each other already. So skip the biography. Tell the class about the AI in your Discussion 0 article.</p>
+  <div class="do"><b>Do this</b><ol><li>Type the AI system from your article in the box below. Use one sentence.</li><li>When your name is called, answer the four questions.</li><li>Stop when your time is up.</li><li>While others speak, write down one system you had not thought of as AI.</li></ol></div>
+  <label for="mySys">The AI system in my article, in one sentence</label>
+  <input type="text" id="mySys" data-save="sys" maxlength="160" autocomplete="off">
+  <h2>The four questions</h2>
+  <ol>
+    <li><strong>Your name and what you do or study.</strong></li>
+    <li><strong>The AI system in your article.</strong> One sentence: what does it do?</li>
+    <li><strong>One claim you checked.</strong> True, sensationalized, or false?</li>
+    <li><strong>Would you trust that system with a decision about you?</strong> Yes or no, and why.</li>
+  </ol>
+  <div class="ask"><b>After the Loop</b><p>Which system surprised you? Why had you not thought of it as AI?</p></div>
+  <div class="inst">
+    <h2>Instructor controls</h2>
+    <div class="panel" aria-live="polite">
+      <p class="kicker" id="loopPos"></p>
+      <p class="big" id="loopName"></p>
+      <p class="clock" id="loopClock"></p>
+    </div>
+    <div class="row">
+      <button class="btn go" id="loopNext" type="button"></button>
+      <button class="btn" id="loopRand" type="button">Pick at random</button>
+      <button class="btn" id="loopPause" type="button">Pause</button>
+    </div>
+    <p class="muted">Click a seat on the ring to choose that student.</p>
+    <label for="loopNote">The AI system this speaker described</label>
+    <input type="text" id="loopNote" maxlength="80" autocomplete="off">
+    <details class="box" style="margin-top:14px"><summary>Set up the Loop</summary>
+      <p><label for="loopRoster">First names, one per line</label><textarea id="loopRoster" placeholder="Leave empty to use the class list"></textarea>
+      <label for="loopCount">Number of seats when no names are entered</label><input type="number" id="loopCount" min="2" max="40"></p>
+      <p><button class="btn" id="loopShuffle" type="button">Shuffle the seats</button> <button class="btn" id="loopReset" type="button">Start the Loop over</button></p>
+      <p class="muted" id="loopPer"></p>
+    </details>
+  </div>
+</template>
+
+<template id="s-hook" data-seg="lecture" data-view="off">
+  <p class="kicker">Lecture · <span data-time="lecture.start"></span> to <span data-time="lecture.end"></span></p>
+  <h1>Discuss first</h1>
+  <div class="do"><b>Do this</b><ol><li>Read both questions.</li><li>Talk with the person next to you for two minutes.</li><li>Be ready to share your answer with the class.</li></ol></div>
+  <div class="cols">
+    <div class="ask"><b>Question 1</b><p class="bigq">What happens when a manager buys the latest AI tool before identifying a need?</p></div>
+    <div class="ask"><b>Question 2</b><p class="bigq">Have you ever bought an AI tool, or any piece of technology, and then not known what you were going to use it for?</p></div>
+  </div>
+</template>
+
+<template id="s-order" data-seg="lecture" data-view="off">
+  <p class="kicker">Lecture · The method</p>
+  <h1>The order that works</h1>
+  <p class="lede">Teams that buy the tool first spend the project looking for a problem it fits. Work in this order instead.</p>
+  <div class="cols">
+    <div>
+      <ol class="steps">
+        <li><strong>Name the problem type.</strong> What kind of task is the system doing?</li>
+        <li><strong>Plan with a framework.</strong> Should AI make this decision, and how do we run the project?</li>
+        <li><strong>Match the technology.</strong> Let the data and the limits choose the tool.</li>
+        <li><strong>Judge success by the industry.</strong> A hospital and a clothing store do not mean the same thing by "it works."</li>
+      </ol>
+      <p class="muted">Every weekly project and your capstone use these four steps.</p>
+    </div>
+    <div>
+  <div class="def"><b>Definition</b><p><strong>Problem type.</strong> The kind of task an AI system performs, such as sorting items or predicting a number.</p><p><strong>Framework.</strong> A checklist for the whole project. It forces the hard questions before anyone builds.</p><p><strong>Technology.</strong> The method that performs the task, such as traditional machine learning or deep learning.</p></div>
+  
+    </div>
+  </div>
+</template>
+
+<template id="s-types" data-seg="lecture" data-cap="">
+  <p class="kicker">Step 1 · Name the problem type</p>
+  <h1>Six problem types AI solves</h1>
+  <div class="def"><b>Definition</b><p><strong>Problem type.</strong> The kind of task an AI system performs. Almost every AI system performs one of the six tasks in the table below.</p></div>
+  <div class="tw"><table id="typeTable"></table></div>
+  <div class="do"><b>Do this</b><ol><li>Select a problem type in the table.</li><li>Read the three lines under the table: what the dots are, the example, and the data it needs.</li><li>Use the control in the outlined box. Watch the chart change.</li><li>Type your answer to the question in the outlined box.</li><li>Repeat for all six problem types.</li></ol></div>
+  <dl class="panel" id="typePanel"></dl>
+  <div class="ctl" id="typeCtl"></div>
+  <div class="def"><b>Definition</b><p><strong>Vector.</strong> A list of numbers that describes one item. The numbers give the item its position on the chart. Similar items sit close together.</p><p><strong>Model.</strong> The trained system that turns a new item into an answer.</p></div>
+  <div class="ask"><b>Discuss after all six</b><p>Pick a problem from your work or daily life. Which of the six problem types is it, and what data would the system need?</p></div>
+</template>
+
+<template id="s-name" data-seg="lecture" data-cap="The chart shows the problem type once you find it.">
+  <p class="kicker">Step 1 · Your turn</p>
+  <h1>Name the problem type</h1>
+  <div class="do"><b>Do this</b><ol><li>Read each system.</li><li>Select the problem type it is.</li><li>Read the explanation. If your answer is marked wrong, try again.</li></ol></div>
+  <div id="nameQuiz"></div>
+  <div class="ask"><b>Discuss</b><p>Which system was hardest to name? What made it hard?</p></div>
+</template>
+
+<template id="s-room" data-seg="lecture" data-cap="">
+  <p class="kicker">Step 1 · From the Loop</p>
+  <h1>Which problem type is your system?</h1>
+  <p>During the Loop you described the AI system from your article. Now name its problem type.</p>
+  <div class="do"><b>Do this</b><ol><li>Check the sentence that describes your system. Fix it if you need to.</li><li>Select the problem type it is.</li><li>Write one sentence that says why.</li><li>Be ready to read your answer when your name is called.</li></ol></div>
+  <label for="roomSys">The AI system in my article, in one sentence</label>
+  <input type="text" id="roomSys" data-save="sys" maxlength="160" autocomplete="off">
+  <label>Its problem type</label>
+  <div class="row" id="roomChips"></div>
+  <label for="roomWhy">Why it is that problem type</label>
+  <textarea id="roomWhy" data-save="sysWhy" placeholder="Type one sentence"></textarea>
+  <div class="ask" style="margin-top:14px"><b>Discuss</b><p>Which problem type did this class name most often? Which did nobody name, and why?</p></div>
+  <details class="box inst"><summary>Class list <span>(instructor)</span></summary>
+    <div style="padding:0 14px 12px"><div class="tally" id="roomTally"></div><div id="roomRows"></div></div>
+  </details>
+</template>
+
+<template id="s-canvas" data-seg="lecture" data-view="off">
+  <p class="kicker">Step 2 · Should AI make this decision?</p>
+  <h1>The AI Canvas</h1>
+  <div class="cols">
+    <div>
+      <div class="def"><b>Definition</b><p><strong>The AI Canvas.</strong> A one-page planning worksheet with seven boxes. A team fills it in before building anything. Each box asks one question about one decision.</p><p><strong>Where it comes from.</strong> Three economists at the University of Toronto, Ajay Agrawal, Joshua Gans, and Avi Goldfarb, published it in 2018. Their idea: AI makes predictions cheaper. So the worksheet starts with a prediction.</p></div>
+    </div>
+    <div>
+      <div class="def"><b>Case study</b><p><strong>A base housing maintenance office gets 400 work orders a week.</strong> A gas smell sits in the same queue as a squeaky door. Leadership asks whether AI should decide which orders go first.</p></div>
+      <div class="do"><b>Do this</b><ol><li>Read the question in each box.</li><li>Write your own answer for the housing office.</li><li>Click the box to compare your answer with the sample answer.</li></ol></div>
+    </div>
+  </div>
+  <div class="sheet" aria-label="The AI Canvas worksheet">
+    <details><summary><b>Prediction</b><span>What do we need to know that we do not know now?</span><i>Click to compare</i></summary><p>Which new work orders are urgent.</p></details>
+    <details><summary><b>Judgment</b><span>What does each kind of mistake cost?</span><i>Click to compare</i></summary><p>Miss an urgent order and a family sits with a gas leak or no heat. Flag a routine order by mistake and a technician arrives early for a squeaky door. The first mistake costs far more. This is the box teams skip.</p></details>
+    <details><summary><b>Action</b><span>What will we do with the prediction?</span><i>Click to compare</i></summary><p>Move flagged orders to the front of the queue. A dispatcher confirms before a crew is sent.</p></details>
+    <details><summary><b>Outcome</b><span>How will we measure success?</span><i>Click to compare</i></summary><p>Hours from request to response on urgent orders, with no longer wait on routine ones.</p></details>
+    <details><summary><b>Input</b><span>What data does each prediction use?</span><i>Click to compare</i></summary><p>The words in the request, the category, the building, and the time of day.</p></details>
+    <details><summary><b>Training</b><span>What past data teaches the system?</span><i>Click to compare</i></summary><p>Three years of closed work orders, each marked with how urgent it turned out to be.</p></details>
+    <details><summary><b>Feedback</b><span>How do results flow back?</span><i>Click to compare</i></summary><p>Every time the dispatcher changes a flag, that correction goes into the records.</p></details>
+  </div>
+  <div class="ask"><b>Discuss</b><p>Which box would your workplace skip? What would skipping it cost?</p></div>
+</template>
+
+<template id="s-judgment" data-seg="lecture" data-cap="Each dot is one work order. Blue is routine. Magenta is urgent. Everything right of the plane gets flagged. Amber is a mistake.">
+  <p class="kicker">Step 2 · The box teams skip</p>
+  <h1>Judgment: set the cutoff</h1>
+  <p>The housing office trained its system. It gives every work order a score, from routine on the left to urgent on the right. Someone still has to decide how high a score must be before a crew is sent first.</p>
+  <div class="def"><b>Definition</b><p><strong>Cutoff.</strong> The score at which the system acts. Orders above it get flagged as urgent.</p><p><strong>Miss.</strong> An urgent order the system let through as routine.</p><p><strong>False alarm.</strong> A routine order the system flagged as urgent.</p></div>
+  <div class="ctl">
+    <label for="cutoff">Where do you set the cutoff?</label>
+    <input type="range" id="cutoff" min="-2.2" max="2.2" step="0.05" value="0">
+    <p class="read" id="cutRead" aria-live="polite"></p>
+    <p class="say">No cutoff gets both numbers to zero.</p>
+  </div>
+  <div class="do"><b>Do this</b><ol><li>Slide the cutoff left and right. Watch both numbers.</li><li>Stop at the lowest damage score.</li><li>Write down which mistake you chose to accept more of: misses or false alarms.</li></ol></div>
+  <div class="ask"><b>Discuss</b><p>Who should set the cutoff: the vendor, the dispatcher, or the housing director? Why?</p></div>
+</template>
+
+<template id="s-crisp" data-seg="lecture" data-cap="Six phases on a ring. Click a phase. A failed evaluation sends the project back to the start.">
+  <p class="kicker">Step 2 · How do we run the project?</p>
+  <h1>CRISP-DM is a loop</h1>
+  <div class="def"><b>Definition</b><p><strong>CRISP-DM.</strong> Short for Cross-Industry Standard Process for Data Mining. It is a list of six phases a team follows to run a data project. An industry group published it in the late 1990s. It is still the most widely used.</p><p><strong>Data mining.</strong> Finding useful patterns in large sets of data.</p></div>
+  <div class="def"><b>Case study</b><p><strong>The housing office, continued.</strong> The AI Canvas said yes: let AI score work orders for urgency. Now the team has to run the project. Follow it through all six phases.</p></div>
+  <div class="row" id="crispChips"></div>
+  <div class="panel" id="crispPanel" aria-live="polite"></div>
+  <div class="row"><button class="btn go" id="crispNext" type="button">Next phase</button><button class="btn" id="crispFail" type="button">Evaluation fails</button></div>
+  <div class="do"><b>Do this</b><ol><li>Step through the six phases. Read what each one means and what the housing office did.</li><li>At phase 5, press Evaluation fails. Watch where the project goes.</li></ol></div>
+  <p><strong>The two tools work together.</strong> The AI Canvas is the worksheet from two screens back. It answers whether to hand a decision to AI. CRISP-DM runs the project once the answer is yes. A team that skips the loop ships a system nobody uses.</p>
+  <div class="ask"><b>Discuss</b><p>Which phase does a team under deadline pressure skip? What happens when it does?</p></div>
+</template>
+
+<template id="s-data" data-seg="lecture" data-cap="">
+  <p class="kicker">Step 3 · Match the technology</p>
+  <h1>The data decides</h1>
+  <p>Start with one question. Is the data structured or unstructured?</p>
+  <div class="row"><button class="chip" id="dStruct" type="button" aria-pressed="true">Structured</button><button class="chip" id="dUnstruct" type="button" aria-pressed="false">Unstructured</button></div>
+  <div class="panel" id="dataPanel" aria-live="polite"></div>
+  <div class="tw"><table>
+    <tr><th>Technology</th><th>Best at</th><th>Example</th></tr>
+    <tr><td>Traditional machine learning</td><td>Patterns in structured data, on modest computing power</td><td>Forecasting inventory, flagging card fraud</td></tr>
+    <tr><td>Deep learning</td><td>Images, audio, and language</td><td>Reading medical scans, speech recognition</td></tr>
+    <tr><td>Reinforcement learning</td><td>Learning by acting and getting feedback</td><td>Controlling robots, cutting cooling energy in data centers</td></tr>
+    <tr><td>GenAI</td><td>Creating new text, images, audio, or code</td><td>Drafting reports, summarizing documents</td></tr>
+  </table></div>
+  <div class="do"><b>Do this</b><ol><li>Switch between Structured and Unstructured and compare the two charts.</li><li>For each item, decide whether it is structured or unstructured data: a sales spreadsheet, a voicemail, a temperature reading taken every minute, a photo of a rash, a text message.</li><li>Keep in mind why this matters: you have to know which kind of data you have before you can pick a technology.</li></ol></div>
+  <p><strong>Do not reach for the most powerful tool by default.</strong> A store forecasting inventory from sales records does not need deep learning. A factory reading camera images does.</p>
+  <div class="ask"><b>Discuss</b><p>Where you work, is most of the data structured or unstructured?</p></div>
+</template>
+
+<template id="s-deep" data-seg="lecture" data-cap="">
+  <p class="kicker">Step 3 · Inside the technology</p>
+  <h1>How deep is deep?</h1>
+  <p>The four terms nest. Each one sits inside the one before it.</p>
+  <ol>
+    <li><strong>Artificial intelligence.</strong> Any system that does a task we associate with human thinking.</li>
+    <li><strong>Machine learning.</strong> AI that learns its rules from data.</li>
+    <li><strong>Neural networks.</strong> Machine learning built from layers of connected nodes.</li>
+    <li><strong>Deep learning.</strong> A neural network with many layers.</li>
+  </ol>
+  <div class="do"><b>Do this</b><ol><li>Move the slider from 3 layers to 12.</li><li>Watch the line under the slider. It changes from "a standard neural network" to "deep learning." Note the number of layers where it changes.</li><li>Press Send a signal through. Count how many layers the signal passes.</li></ol></div>
+  <div class="ctl">
+    <label for="layers">Add layers</label>
+    <input type="range" id="layers" min="3" max="12" step="1" value="3">
+    <p class="read" id="layRead" aria-live="polite"></p>
+    <div class="row"><button class="btn go" id="pulse" type="button">Send a signal through</button></div>
+    <p class="say" id="laySay"></p>
+  </div>
+  <p><strong>The difference is depth: the number of layers.</strong> Nothing else separates the two.</p>
+  <div class="ask"><b>Discuss</b><p>Deeper networks read harder data. So why not always use the deepest one?</p></div>
+</template>
+
+<template id="s-gen" data-seg="lecture" data-cap="">
+  <p class="kicker">Step 3 · Inside the technology</p>
+  <h1>How GenAI makes something new</h1>
+  <p>GenAI is not one technology. Three model types do most of the work.</p>
+  <div class="tw"><table>
+    <tr><th>Model type</th><th>How it works</th><th>Makes</th></tr>
+    <tr class="hl"><td>Diffusion model</td><td>Adds noise to data step by step, then learns to reverse the process</td><td>Images, video, audio</td></tr>
+    <tr><td>Large language model</td><td>Predicts the next word, over and over</td><td>Text and code</td></tr>
+    <tr><td>Generative adversarial network</td><td>Two networks compete. One makes fakes. One tries to catch them.</td><td>Images</td></tr>
+  </table></div>
+  <div class="def"><b>Definition</b><p><strong>Noise.</strong> Random static with no pattern in it.</p><p><strong>Diffusion.</strong> Learning to remove noise a little at a time until a picture is left.</p></div>
+  <div class="ctl">
+    <label for="noise">Noise</label>
+    <input type="range" id="noise" min="0" max="100" step="1" value="0">
+    <p class="read" id="noiseRead" aria-live="polite"></p>
+    <div class="row"><button class="btn" id="genNoise" type="button">Add noise, step by step</button><button class="btn go" id="genBack" type="button">Reverse it</button></div>
+    <p class="say">Drag to 100. Then press Reverse it more than once. You never get the same picture back.</p>
+  </div>
+  <div class="ask"><b>Discuss</b><p>You never get the same picture back. What does that tell you about asking GenAI for a fact?</p></div>
+</template>
+
+<template id="s-limits" data-seg="lecture" data-cap="Rows and columns on one side, raw material on the other. The limits decide the rest." data-view="off">
+  <p class="kicker">Step 3 · Your turn</p>
+  <h1>Four limits on the technology you can use</h1>
+  <p>The best technology in theory is not always the one you can use. Four real-world limits can force a different choice.</p>
+  <div class="tw"><table>
+    <tr><th>Limit</th><th>What it looks like</th></tr>
+    <tr><td>Limited data</td><td>A hospital cannot pool patient records freely, so it needs a model that learns from fewer cases.</td></tr>
+    <tr><td>Computing limits</td><td>A translation app that works offline needs a small model.</td></tr>
+    <tr><td>Explainability</td><td>A model nobody can explain is a black box. A bank has to tell a loan applicant why they were denied. A doctor has to justify a diagnosis. Hospitals and banks will not put a system to use if nobody can explain its decisions.</td></tr>
+    <tr><td>Existing systems</td><td>A forecast that cannot connect to the ordering system goes unused.</td></tr>
+  </table></div>
+  <div class="def"><b>Definition</b><p><strong>Explainability.</strong> Whether a person can see why the system decided what it did. A system that cannot show its reasons is called a black box.</p></div>
+  <div class="do"><b>Do this</b><ol><li>For each problem below, choose the technology that fits.</li><li>Then decide which of the four limits affected your choice.</li></ol></div>
+
+  <div id="techQuiz"></div>
+  <div class="ask"><b>Discuss</b><p>Which of the four limits would cause the most trouble where you work?</p></div>
+</template>
+
+<template id="s-fields" data-seg="lecture" data-cap="" data-view="off">
+  <p class="kicker">Step 4 · Judge success by the industry</p>
+  <h1>Same technology, three builds</h1>
+  <p>Three industries use computer vision to sort images. Each industry needed something different.</p>
+<div class="def"><b>Definition</b><p><strong>Computer vision.</strong> AI that works with images and video.</p><p><strong>Augmented reality.</strong> A live camera view with digital objects placed in it.</p></div>
+  <div class="tw"><table id="fieldTable">
+    <tr><th>Industry</th><th>The problem</th><th>Type</th><th>What shaped the build</th></tr>
+    <tr class="hl"><td>Healthcare</td><td>Screening diabetic patients for eye disease</td><td>Classification</td><td>Regulation. The FDA cleared IDx-DR in 2018 after a clinical trial.</td></tr>
+    <tr class="hl"><td>Manufacturing</td><td>Catching defects on a fast line</td><td>Classification</td><td>Rare examples. Few defect images exist to train on.</td></tr>
+    <tr class="hl"><td>Agriculture</td><td>Diagnosing crop disease far from internet service</td><td>Classification</td><td>Computing limits. PlantVillage Nuru runs on the farmer's phone.</td></tr>
+    <tr><td>Finance</td><td>Stopping card fraud during the purchase</td><td>Anomaly detection</td><td>Speed. Milliseconds to decide, and every false alarm blocks an honest customer.</td></tr>
+    <tr><td>Retail</td><td>Stocking the right amount</td><td>Regression</td><td>Existing systems. The forecast must flow into ordering.</td></tr>
+    <tr><td>Military</td><td>Predicting part failures before they ground an aircraft</td><td>Regression and anomaly detection</td><td>Data quality. Handwritten and inconsistent logs weaken the model.</td></tr>
+  </table></div>
+  <p><strong>Retail has its own build.</strong> Augmented reality puts the sofa in your room or the glasses on your face before you buy. Shoppers see size, fit, and color in place. Fewer surprises at the door means fewer returns.</p>
+  <p><strong>Ask two questions about any AI system. What does it do? What did its industry require of it?</strong></p>
+  <div class="ask"><b>Discuss</b><p>Pick your own industry. What would it require of an AI system that another industry would not?</p></div>
+</template>
+
+<template id="s-language" data-seg="lecture" data-cap="Entailment is a sorting task with three bins: supports, contradicts, cannot tell." data-view="off">
+  <p class="kicker">Step 4 · Judge success by the industry</p>
+  <h1>Language AI in two industries</h1>
+  <div class="def"><b>Definition</b><p><strong>Natural language processing (NLP).</strong> AI that works with human language.</p><p><strong>Textual entailment.</strong> Deciding whether one statement logically supports another.</p></div>
+  <div class="do"><b>Do this</b><ol><li>Read each pair of statements.</li><li>Select supports, contradicts, or cannot tell.</li><li>Read the explanation.</li></ol></div>
+
+  <div id="entQuiz"></div>
+  <div class="duo" style="margin-top:14px">
+    <div class="panel"><p><strong>Legal.</strong> Precision comes first. One missed clause costs money. JPMorgan's COIN software, short for Contract Intelligence, reads commercial-loan agreements in seconds. The same review took lawyers and loan officers about 360,000 hours a year.</p></div>
+    <div class="panel"><p><strong>Customer service.</strong> Speed and a natural conversation come first. A slightly wrong answer gets corrected in the next message. A slow one loses the customer.</p></div>
+  </div>
+  <p><strong>Same technology. The industry changed the priority from speed to precision.</strong></p>
+  <div class="ask"><b>Discuss</b><p>In your work, when is "cannot tell" the right answer? What happens if the system guesses instead?</p></div>
+</template>
+
+<template id="s-success" data-seg="lecture" data-cap="Six patterns hold a project together. Click one on the ring." data-view="off">
+  <p class="kicker">Step 4 · What success means</p>
+  <h1>Two systems, two meanings of success</h1>
+  <div class="duo">
+    <div class="panel"><p><strong>Stroke detection software</strong> reads CT scans and alerts the stroke team. It is a triage tool. It moves the likely stroke to the front of the line. It does not diagnose. A doctor makes the final call.</p></div>
+    <div class="panel"><p><strong>A fashion recommender</strong> aims for clicks and sales. A bad suggestion costs almost nothing. The team tests new versions on real customers every week.</p></div>
+  </div>
+  <div class="def"><b>Definition</b><p><strong>Triage.</strong> Sorting patients by urgency so the worst is seen first. A triage tool sets the order. It does not make the diagnosis.</p></div>
+  <p>These two systems care about different things. The stroke software has to be accurate, because a mistake can cost a life. The fashion tool has to be quick and cheap to change, because a mistake costs almost nothing.</p>
+  <p><strong>Both projects still did the same six things well.</strong> Successful AI projects in every industry do. The Guide calls them the six patterns.</p>
+  <div class="row" id="patChips"></div>
+  <div class="panel" id="patPanel" aria-live="polite"></div>
+  <div class="ask"><b>Discuss</b><p>Pick an AI system you use. What does success mean for it, and who decides?</p></div>
+</template>
+
+<template id="s-fail" data-seg="lecture" data-cap="Find the skipped pattern and it drops out of the ring.">
+  <p class="kicker">Step 4 · Your turn</p>
+  <h1>Which pattern was skipped?</h1>
+  <p>Three real systems. Each one failed.</p>
+  <div class="do"><b>Do this</b><ol><li>Read each case.</li><li>Select the pattern the team skipped. More than one can be right.</li></ol></div>
+
+  <div id="failQuiz"></div>
+  <div class="ask"><b>Discuss</b><p>Which pattern is the easiest to skip under deadline pressure?</p></div>
+</template>
+
+<template id="s-recap" data-seg="lecture" data-cap="Unsorted again. Now you know what to ask first." data-view="off">
+  <p class="kicker">Lecture · Close</p>
+  <h1>Four questions to ask about any AI system</h1>
+  <ol class="steps">
+    <li><strong>What problem type is it?</strong> One of six.</li>
+    <li><strong>What does a mistake cost?</strong> The Judgment box.</li>
+    <li><strong>What does the data look like, and what limits apply?</strong></li>
+    <li><strong>What does success mean in this industry, and who decides?</strong></li>
+  </ol>
+  <p class="lede">After the break you use what you read in the Unit 0 Guide to get out of a locked facility.</p>
+  <div class="ask"><b>Exit question</b><p>Which of the four questions will you use first at work, and on what?</p></div>
+</template>
+
+<template id="s-break" data-seg="break" data-cap="" data-view="off">
+  <p class="kicker">Break · <span data-time="break.start"></span> to <span data-time="break.end"></span></p>
+  <h1>Ten minutes</h1>
+  <p class="lede stu">Be back in your seat in ten minutes.</p>
+  <div class="inst"><p class="clock" id="brkClock"></p>
+  <div class="row" style="margin-top:14px"><button class="btn go" id="brkGo" type="button">Start the break</button><button class="btn" id="brkReset" type="button">Reset</button></div>
+  <p class="lede" id="brkBack"></p></div>
+  <h2>Before you sit back down</h2>
+  <ul>
+    <li>Find two teammates. Teams of three.</li>
+    <li>Pick one laptop or tablet for the team.</li>
+    <li>Have the Unit 0 Guide in your head, not on your screen.</li>
+  </ul>
+</template>
+
+<template id="s-escape" data-seg="escape" data-cap="Six locked doors. Click the corridor to walk to the next one.">
+  <p class="kicker">AI Lab Sprint · <span data-time="escape.start"></span> to <span data-time="escape.end"></span></p>
+  <h1>Operation Ground Truth</h1>
+  <p class="lede">An experimental AI system has locked the facility down. Nobody can say what it is, what it learned from, or what it decides. The override accepts only operators who can.</p>
+  <p><a class="btn go" id="escLink" target="_blank" rel="noopener" hidden>Open the game</a></p>
+  <p class="muted" id="escNo">Open the game from the link in the AI Lab Sprint directions.</p>
+  <ol class="steps">
+    <li>Enter your team name and <strong>every member's first name</strong>. A missing name has no proof of play.</li>
+    <li>Start the clock. You have <strong>50:00</strong> and six doors.</li>
+    <li>A rejected code costs 1:00. Each door has one hint. The first use costs 1:00.</li>
+    <li>At 0:00, keep going. You finish in overtime and still earn a certificate.</li>
+    <li>Save the Certificate of Escape. <strong>Every team member uploads a copy</strong> to the dropbox by <span data-time="escape.end"></span>.</li>
+  </ol>
+  <p class="muted">Do not press Restart. It erases your team's progress.</p>
+</template>
+
+<template id="s-due" data-seg="capstone" data-cap="Six sections, one per unit. This week you write the first." data-view="off">
+  <p class="kicker">Projects and capstone · <span data-time="capstone.start"></span> to <span data-time="capstone.end"></span></p>
+  <h1>What is due this week</h1>
+  <div class="tw"><table>
+    <tr><th>Item</th><th>Due (JST)</th></tr>
+    <tr><td>AI Lab Sprint certificate, 20 points</td><td>Tonight, before you leave</td></tr>
+    <tr><td>Discussion 1, first post</td><td>Sunday, October 25, 6:00 PM</td></tr>
+    <tr><td>Quiz 1</td><td>Monday, October 26</td></tr>
+    <tr class="hl"><td>Unit 1 Project, 100 points</td><td>Tuesday, October 27, 12:00 noon</td></tr>
+    <tr class="hl"><td>Capstone Turn-In 1: The Problem, 30 points</td><td>Tuesday, October 27, 12:00 noon</td></tr>
+    <tr><td>Discussion 1, replies</td><td>Tuesday, October 27, 6:00 PM</td></tr>
+  </table></div>
+  <p><strong>The weekly project and the capstone paragraph are two different uploads.</strong> The project puts this week's unit to work. The paragraph applies it to your own organization.</p>
+</template>
+
+<template id="s-points" data-seg="capstone" data-cap="Solid is what counts. The outline is the cap. Faded is work you did past the cap.">
+  <p class="kicker">Projects and capstone · How points add</p>
+  <h1>Build your own grade</h1>
+  <p><strong>Points add. They do not average.</strong> Move the sliders. Each one assumes full credit on the work you turn in.</p>
+  <div class="ctl">
+    <div class="calc" id="calc"></div>
+    <p class="read" id="calcRead" aria-live="polite"></p>
+  </div>
+  <p>You can miss a class or a discussion and still earn full points. <strong>The capstone is worth 200 points in total:</strong> Turn-In 1 is 30, Turn-In 2 is 30, and the final paper is 140. All 200 count toward your grade.</p>
+</template>
+
+<template id="s-thread" data-seg="capstone" data-cap="Six sections, one per unit. Click a section. The final paper closes the ring." data-view="off">
+  <p class="kicker">Capstone · 200 points</p>
+  <h1>One paragraph a week</h1>
+  <p>You pick one field and one organization. Each week you apply that week's unit to it in one paragraph. The final paper answers one question: <strong>should this organization use AI to solve this problem, go or no-go?</strong></p>
+  <div class="tw"><table id="threadTable">
+    <tr><th>Week</th><th>Section</th><th>The question</th><th>Due</th></tr>
+    <tr class="hl"><td>1</td><td>The Problem</td><td>Your field, your organization, one problem, and the AI application that fits</td><td>Turn-In 1, 30 points, Oct 27</td></tr>
+    <tr><td>2</td><td>The Risk</td><td>Who gets hurt if the system is wrong, and one ethical or legal issue</td><td>Nov 3</td></tr>
+    <tr class="hl"><td>3</td><td>The Tool</td><td>The tool you would use, why it fits, and one option you rejected</td><td>Turn-In 2, 30 points, Nov 10</td></tr>
+    <tr><td>4</td><td>The Data</td><td>The data the organization needs and what is wrong with it</td><td>Nov 17</td></tr>
+    <tr><td>5</td><td>The Check</td><td>How a person checks the output before acting on it</td><td>Nov 24</td></tr>
+    <tr><td>6</td><td>The Real Case</td><td>One real case from your field and what it teaches your organization</td><td>Dec 1</td></tr>
+    <tr class="hl"><td>7 and 8</td><td>Final paper</td><td>Six sections revised, plus an Opening, a Recommendation, and What I Changed</td><td>140 points, Dec 8, 11:59 PM</td></tr>
+  </table></div>
+  <ul>
+    <li>Three to four pages. Short is fine. It has to hold together.</li>
+    <li>You upload the template every week. Only the two turn-ins earn points along the way.</li>
+    <li>Your field and organization lock on November 10.</li>
+    <li>Use a made-up name. Leave out anything sensitive or operational.</li>
+  </ul>
+  <div class="ask"><b>Before you leave</b><p>Name a field and one problem right now. You can change both until November 10.</p></div>
+</template>
+
+<template id="s-example" data-seg="capstone" data-cap="Click a section on the ring or on the left. Each one lights its place.">
+  <p class="kicker">Capstone · A finished example</p>
+  <h1>Bayside Family Dental</h1>
+  <p class="muted">An instructor-written example. The clinic is made up. Read it for the shape, not the topic.</p>
+  <div class="do"><b>Do this</b><ol><li>Read one section at a time.</li><li>For each one, ask what the rubric would want to see there.</li></ol></div>
+  <div class="row" id="exChips"></div>
+  <div class="panel" id="exPanel" aria-live="polite"></div>
+  <div class="ask"><b>Discuss</b><p>Is "go, with two conditions" a stronger answer than a plain "go"? Why?</p></div>
+</template>
+
+<template id="s-wrap" data-seg="wrap" data-cap="Same cases as six o'clock. You now have six names for what a system can do with them." data-view="off">
+  <p class="kicker">Before next Tuesday</p>
+  <h1>Leave with a field in mind</h1>
+  <ol class="steps">
+    <li><strong>Tonight:</strong> your certificate is in the dropbox. Your own copy.</li>
+    <li><strong>By Sunday, 6:00 PM:</strong> Discussion 1, first post.</li>
+    <li><strong>By Monday:</strong> Quiz 1.</li>
+    <li><strong>By Tuesday noon:</strong> Unit 1 Project and Capstone Turn-In 1.</li>
+  </ol>
+  <p class="lede">On the way out, tell one person your capstone field and the one problem you would hand to AI.</p>
+</template>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+function $(s,r){return (r||document).querySelector(s)}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+
+/* ---------- state (this device only) ---------- */
+var KEY='unit1-class-night-v2';
+/* Class list. Edit these names here, or change them on the Loop screen under "Set up the Loop". */
+var ROSTER=['Eli','Ardrell','Tylor','Roberto','Ainsley','Jesse','Nicholas','Matt','Alexangel','Justin','Caden','Omar','Robert'];
+var S={roster:'',count:12,intro:40,start:'18:00',link:'',idx:0,order:null,cur:-1,spoken:{},notes:{},tags:{},my:{},inst:false};
+try{var sv=JSON.parse(localStorage.getItem(KEY)||'null');if(sv)for(var k in sv)if(k in S)S[k]=sv[k]}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+var TYPES=[
+ {n:'Classification',c:'#2F7FD0',d:'Sorts each item into a category.',e:'A gate camera reads a plate and decides: registered or not.',need:'Labeled examples. Someone already marked the right answer.',dot:'Each dot is one car at the gate. Blue is unregistered. Magenta is registered.',cap:'Two groups of cars and a boundary. Amber cars are on the wrong side.'},
+ {n:'Regression',c:'#D98A00',d:'Predicts a number.',e:'A shipping company estimates how many days a package will take.',need:'Past numbers, with the things that drove them.',dot:'Each dot is one past shipment: how far it went and how many days it took.',cap:'A trend through past shipments. The marker moves along the line to a number.'},
+ {n:'Clustering',c:'#2FA36B',d:'Finds natural groups with no labels given in advance.',e:'A news app groups thousands of articles by topic.',need:'No labels at all. Only the articles themselves.',dot:'Each dot is one news article. Articles on similar topics sit close together.',cap:'No labels. You pick how many groups. The system picks the members.'},
+ {n:'Anomaly detection',c:'#E0542B',d:'Learns what normal looks like and flags what breaks the pattern.',e:'Your bank texts you about a 3 AM purchase in another country.',need:'A long record of normal behavior.',dot:'Each dot is one card purchase. The grey shell marks what the bank treats as normal.',cap:'The shell is "normal." Orange purchases are flagged. Watch the ball.'},
+ {n:'Recommendation',c:'#C2338B',d:'Predicts what you will like, based on you and people like you.',e:'An online store shows "customers also bought."',need:'Records of who chose what.',dot:'Each dot is one shopper. Shoppers who buy similar things sit close together.',cap:'Magenta is you. Amber is the shoppers most like you. Click any dot.'},
+ {n:'Generation',c:'#8266D9',d:'Creates new content.',e:'A GenAI tool produces an image from a text description.',need:'Huge collections of existing text, images, or audio.',dot:'Each grey dot is one image the model learned from. The model stores every image as a vector: a list of numbers that gives it a position.',cap:'Grey dots are training images. Each violet arrow is a new vector the model produced.'}];
+var TN=TYPES.map(function(t){return t.n});
+var TASK=['Which mistake is worse at a gate: waving in an unregistered car, or stopping a registered one?','Distance is one input. What else should the model know before it predicts the days?','The system found the groups. Who decides what each group means?','Tighten the slider. What happens to trust when a system raises dozens of false alarms?','What does the system do with a brand-new shopper who has no history?','None of the violet images existed before. When is it safe to use them, and when is it not?'];
+
+/* ---------- time ---------- */
+function segs(){var i=+S.intro||40;return [
+ {id:'welcome',name:'Welcome',min:5},{id:'loop',name:'The Loop',min:i},{id:'lecture',name:'Lecture',min:85-i},
+ {id:'break',name:'Break',min:10},{id:'escape',name:'Escape room',min:60},{id:'capstone',name:'Projects + capstone',min:15},{id:'wrap',name:'Wrap',min:5}]}
+function startMin(){var p=String(S.start||'18:00').split(':');return (+p[0]||0)*60+(+p[1]||0)}
+function clk(m){m=((Math.round(m)%1440)+1440)%1440;var h=Math.floor(m/60),mm=m%60,ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+(mm<10?'0':'')+mm+' '+ap}
+function plan(){var t=startMin(),o={};segs().forEach(function(s){o[s.id]={start:t,end:t+s.min,name:s.name,min:s.min};t+=s.min});return o}
+function mmss(s){s=Math.max(0,Math.ceil(s));var m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x}
+
+/* ---------- roster ---------- */
+function names(){var n=String(S.roster).split('\n').map(function(x){return x.trim()}).filter(Boolean);
+ if(!n.length)n=ROSTER.slice();
+ if(!n.length){var c=Math.min(40,Math.max(2,+S.count||12));for(var i=0;i<c;i++)n.push('Seat '+(i+1))}return n}
+function order(){var n=names().length;if(!S.order||S.order.length!==n){S.order=[];for(var i=0;i<n;i++)S.order.push(i);S.cur=-1;S.spoken={}}return S.order}
+function lineup(){var nm=names();return order().map(function(i){return nm[i]})}
+function tagColors(){return lineup().map(function(n){var t=S.tags[n];return (t>=0&&t<6)?TYPES[t].c:null})}
+
+/* ---------- the ball that leaves the screen ---------- */
+function flyBall(x,y){if(RM)return;var el=document.createElement('div');el.className='flyball';document.body.appendChild(el);
+ var sz=88,vx=-(7+Math.random()*3),vy=-11,b=0,t0=performance.now();x-=sz/2;y-=sz/2;
+ (function step(t){vy+=0.62;x+=vx;y+=vy;var fl=window.innerHeight-sz;if(y>fl&&vy>0){y=fl;vy*=-0.74;b++}
+  el.style.transform='translate('+x+'px,'+y+'px)';
+  if(x<-sz*1.5||t-t0>7000){el.remove();return}requestAnimationFrame(step)})(t0)}
+
+/* ================= 3D ================= */
+var G=(function(){
+ var api={};['vecs','cloud','ring','doors','bars','boundary','reg','kmeans','anomaly','launch','recall','you','randomYou','gen','layers','pulse','diffuse','walk'].forEach(function(k){api[k]=function(){return null}});
+ var host=$('#gl');
+ if(!window.THREE){document.body.classList.add('nogl');return api}
+ var R;try{R=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){document.body.classList.add('nogl');return api}
+ R.setPixelRatio(Math.min(window.devicePixelRatio||1,2));R.setClearColor(0x000000,0);
+ host.style.cssText='position:absolute;inset:0';host.appendChild(R.domElement);
+ var scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(42,1,0.1,100);
+ scene.add(new THREE.AmbientLight(0xffffff,0.75));var dl=new THREE.DirectionalLight(0xffffff,0.7);dl.position.set(3,6,5);scene.add(dl);
+ var tp=new THREE.Vector3(0,0.6,7.4),tl=new THREE.Vector3(),look=new THREE.Vector3(),aspect=1;cam.position.copy(tp);
+ var GREY=new THREE.Color('#7C8EA1'),DIM=new THREE.Color('#9AA9B8'),AMB=new THREE.Color('#D98A00'),HOT=new THREE.Color('#FF5A1F');
+ var TC=TYPES.map(function(t){return new THREE.Color(t.c)});
+
+ /* ---- point cloud ---- */
+ var N=360,seed=20261020,i;
+ function rnd(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}
+ function gs(){var u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2832*v)}
+ var base=new Float32Array(N*3);for(i=0;i<N*3;i++)base[i]=gs()*0.95;
+ var pos=new Float32Array(base),col=new Float32Array(N*3),tpos=new Float32Array(base),tcol=new Float32Array(N*3),cls=new Int8Array(N);
+ for(i=0;i<N;i++){GREY.toArray(col,i*3);GREY.toArray(tcol,i*3)}
+ function put(j,x,y,z){tpos[j*3]=x;tpos[j*3+1]=y;tpos[j*3+2]=z}
+ function setC(j,c){c.toArray(tcol,j*3)}
+ var cg=new THREE.BufferGeometry();cg.setAttribute('position',new THREE.BufferAttribute(pos,3));cg.setAttribute('color',new THREE.BufferAttribute(col,3));
+ var dc=document.createElement('canvas');dc.width=dc.height=64;var dx=dc.getContext('2d');dx.beginPath();dx.arc(32,32,28,0,6.2832);dx.fillStyle='#fff';dx.fill();
+ var pts=new THREE.Points(cg,new THREE.PointsMaterial({size:0.14,vertexColors:true,map:new THREE.CanvasTexture(dc),alphaTest:0.5,transparent:true}));
+ var cloudG=new THREE.Group();cloudG.add(pts);scene.add(cloudG);
+ var plane=new THREE.Mesh(new THREE.PlaneGeometry(3.8,3.8),new THREE.MeshBasicMaterial({color:0x7C8EA1,transparent:true,opacity:0.3,side:THREE.DoubleSide,depthWrite:false}));plane.rotation.y=Math.PI/2;cloudG.add(plane);
+ var line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.7,-1.49,0),new THREE.Vector3(2.7,1.49,0)]),new THREE.LineBasicMaterial({color:0xD98A00}));cloudG.add(line);
+ var mark=new THREE.Mesh(new THREE.SphereGeometry(0.17,24,16),new THREE.MeshLambertMaterial({color:0xC2338B}));cloudG.add(mark);
+ var drop=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,-1,0)]),new THREE.LineBasicMaterial({color:0xC2338B}));cloudG.add(drop);
+ var you=new THREE.Mesh(new THREE.SphereGeometry(0.13,20,14),new THREE.MeshLambertMaterial({color:0xC2338B}));cloudG.add(you);
+ var lkPos=new Float32Array(14*6),lkG=new THREE.BufferGeometry();lkG.setAttribute('position',new THREE.BufferAttribute(lkPos,3));
+ var links=new THREE.LineSegments(lkG,new THREE.LineBasicMaterial({color:0xC2338B,transparent:true,opacity:0.7}));links.frustumCulled=false;cloudG.add(links);
+ var gvPos=new Float32Array(120*6),gvG=new THREE.BufferGeometry();gvG.setAttribute('position',new THREE.BufferAttribute(gvPos,3));gvG.setDrawRange(0,0);
+ var gvec=new THREE.LineSegments(gvG,new THREE.LineBasicMaterial({color:0x8266D9}));gvec.frustumCulled=false;cloudG.add(gvec);
+ var tvP=[];for(i=0;i<240;i++)tvP.push(new THREE.Vector3(0,0,0),new THREE.Vector3(base[i*3],base[i*3+1],base[i*3+2]));
+ var tvec=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(tvP),new THREE.LineBasicMaterial({color:0x7C8EA1,transparent:true,opacity:0.3}));cloudG.add(tvec);
+ var axes=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.9,0,0),new THREE.Vector3(2.9,0,0),new THREE.Vector3(0,-2.6,0),new THREE.Vector3(0,2.6,0),new THREE.Vector3(0,0,-2.9),new THREE.Vector3(0,0,2.9)]),new THREE.LineBasicMaterial({color:0x5B6B7E}));cloudG.add(axes);
+ var origin=new THREE.Mesh(new THREE.SphereGeometry(0.07,14,10),new THREE.MeshBasicMaterial({color:0x5B6B7E}));cloudG.add(origin);
+ var shell=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),new THREE.MeshBasicMaterial({color:0x7C8EA1,transparent:true,opacity:0.14,depthWrite:false}));cloudG.add(shell);
+ var shellW=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(1,14,8)),new THREE.LineBasicMaterial({color:0x7C8EA1,transparent:true,opacity:0.35}));shell.add(shellW);
+ var ball=new THREE.Mesh(new THREE.SphereGeometry(0.2,28,20),new THREE.MeshLambertMaterial({color:0xE0542B}));scene.add(ball);
+ var bv=new THREE.Vector3(0.022,0.017,-0.019),bstate='in',bcb=null,bspeed=0;
+ var out=[];for(i=0;i<12;i++){var a0=rnd()*6.2832,b0=(rnd()-0.5)*2.4,r0=2.2+rnd()*0.7;out.push([Math.cos(a0)*r0,b0,Math.sin(a0)*r0])}
+ var cmode='idle',flat=false,colA=TC[0],colB=TC[4],genN=0,GEN0=N-120,curL=3,pulseT=-1,youI=0;
+ /* pictures for the diffusion screen */
+ var SHAPES=[function(j){var a;if(j<200){a=j/200*6.2832;return [Math.cos(a)*1.9,Math.sin(a)*1.9]}if(j<230){a=(j-200)/30*6.2832;return [-0.7+Math.cos(a)*0.22,0.6+Math.sin(a)*0.22]}if(j<260){a=(j-230)/30*6.2832;return [0.7+Math.cos(a)*0.22,0.6+Math.sin(a)*0.22]}a=3.6652+(j-260)/100*2.0944;return [Math.cos(a)*1.15,Math.sin(a)*1.15]},
+  function(j){var a=j/N*6.2832,s=Math.sin(a);return [16*s*s*s/8.5,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))/8.5+0.2]},
+  function(j){var u=j/N*10,k=Math.floor(u),f=u-k,p=function(q){var r=q%2?0.85:2.05,a=1.5708+q*0.62832;return [Math.cos(a)*r,Math.sin(a)*r]},A=p(k),B=p(k+1);return [A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f]}];
+
+ function cloudMode(m,p){p=p||{};
+  cmode=m;pulseT=-1;plane.visible=(m==='classification'||m==='cutoff');line.visible=mark.visible=drop.visible=(m==='regression');you.visible=links.visible=(m==='recommendation');gvec.visible=axes.visible=origin.visible=(m==='generation');tvec.visible=false;
+  shell.visible=ball.visible=(m==='anomaly');
+  flat=(m==='structured'||m==='regression'||m==='layers'||m==='diffuse'||m==='classification'||m==='cutoff');
+  var j,x,y,z;
+  for(j=0;j<N;j++){x=base[j*3];y=base[j*3+1];z=base[j*3+2];var c=GREY;
+   if(m==='classification'||m==='cutoff'){var s=j<N/2?-1:1,sep=m==='cutoff'?0.85:1.4,sc=m==='cutoff'?0.75:0.62;cls[j]=s;x=x*sc+s*sep;y*=0.8;z*=0.8}
+   else if(m==='regression'){x=(j/N-0.5)*5.2;y=0.55*x+base[j*3+1]*0.36;z=base[j*3+2]*0.3;c=TC[1]}
+   else if(m==='clustering'){var ctr=[[-1.6,0.9,0],[1.5,1,-0.5],[-0.8,-1.1,0.8],[1.6,-0.9,0.3]][j%4];x=x*0.42+ctr[0];y=y*0.42+ctr[1];z=z*0.42+ctr[2]}
+   else if(m==='anomaly'){if(j<12){x=out[j][0];y=out[j][1];z=out[j][2]}else{x*=0.5;y*=0.5;z*=0.5}}
+   else if(m==='recommendation'){c=DIM}
+   else if(m==='generation'){c=DIM;if(j>=GEN0){x=y=z=0;pos[j*3]=pos[j*3+1]=pos[j*3+2]=0}}
+   else if(m==='structured'){x=((j%20)-9.5)*0.27;y=(Math.floor(j/20)-8.5)*0.2;z=0;c=TC[0]}
+   else if(m==='unstructured'){x*=1.25;y*=1.25;z*=1.25;c=TC[5]}
+   put(j,x,y,z);setC(j,c)}
+  if(m==='classification'){colA=TC[0];colB=TC[4];api.boundary(0)}
+  if(m==='cutoff'){colA=TC[0];colB=TC[4];api.boundary(0)}
+  if(m==='regression')api.reg(0);
+  if(m==='anomaly'){bstate='in';ball.position.set(0.2,0.1,0);ball.scale.setScalar(1);api.anomaly(p.r||1.6)}
+  if(m==='recommendation')api.you(youI);
+  if(m==='generation'){genN=0;gvG.setDrawRange(0,0)}
+  if(m==='layers')api.layers(p.L||3);
+  if(m==='diffuse')api.diffuse(p.t||0,p.shape||0);
+ }
+ api.boundary=function(b){plane.position.x=b;var miss=0,fa=0;for(var j=0;j<N;j++){var x=tpos[j*3],w;if(cls[j]<0){w=x>b;if(w)fa++;setC(j,w?AMB:colA)}else{w=x<b;if(w)miss++;setC(j,w?AMB:colB)}}return {miss:miss,fa:fa}};
+ api.reg=function(x){var y=0.55*x;mark.position.set(x,y,0);var pa=drop.geometry.attributes.position;pa.setXYZ(0,x,y,0);pa.setXYZ(1,x,-1.9,0);pa.needsUpdate=true;return y};
+ api.kmeans=function(k){var j,c,it;if(k<=1){for(j=0;j<N;j++)setC(j,GREY);return}
+  var cen=[[tpos[0],tpos[1],tpos[2]]];while(cen.length<k){var best=-1,bd=-1;for(j=0;j<N;j+=3){var md=1e9;for(c=0;c<cen.length;c++){var ax=tpos[j*3]-cen[c][0],ay=tpos[j*3+1]-cen[c][1],az=tpos[j*3+2]-cen[c][2];md=Math.min(md,ax*ax+ay*ay+az*az)}if(md>bd){bd=md;best=j}}cen.push([tpos[best*3],tpos[best*3+1],tpos[best*3+2]])}
+  var as=new Int8Array(N);for(it=0;it<12;it++){var sum=cen.map(function(){return [0,0,0,0]});for(j=0;j<N;j++){var bi=0,bb=1e9;for(c=0;c<k;c++){var qx=tpos[j*3]-cen[c][0],qy=tpos[j*3+1]-cen[c][1],qz=tpos[j*3+2]-cen[c][2],d=qx*qx+qy*qy+qz*qz;if(d<bb){bb=d;bi=c}}as[j]=bi;sum[bi][0]+=tpos[j*3];sum[bi][1]+=tpos[j*3+1];sum[bi][2]+=tpos[j*3+2];sum[bi][3]++}
+   for(c=0;c<k;c++)if(sum[c][3])cen[c]=[sum[c][0]/sum[c][3],sum[c][1]/sum[c][3],sum[c][2]/sum[c][3]]}
+  var pal=[TC[2],TC[0],TC[1],TC[5],TC[4],TC[3]];for(j=0;j<N;j++)setC(j,pal[as[j]])};
+ api.anomaly=function(r){shell.scale.setScalar(r);var f=0,hit=0;for(var j=0;j<N;j++){var d=Math.sqrt(tpos[j*3]*tpos[j*3]+tpos[j*3+1]*tpos[j*3+1]+tpos[j*3+2]*tpos[j*3+2]),fl=d>r;if(fl){f++;if(j<12)hit++}setC(j,fl?TC[3]:DIM)}return {flag:f,hit:hit}};
+ api.launch=function(cb){if(cmode!=='anomaly'||bstate!=='in')return;bcb=cb;if(RM){ball.visible=false;bstate='gone';if(cb)cb();return}bstate='out';bspeed=0.03};
+ api.recall=function(){bstate='in';ball.visible=cmode==='anomaly';ball.position.set(0.2,0.1,0);ball.scale.setScalar(1)};
+ api.you=function(ix){youI=ix;var d=[],j;for(j=0;j<N;j++){if(j===ix)continue;var a=base[j*3]-base[ix*3],b=base[j*3+1]-base[ix*3+1],c=base[j*3+2]-base[ix*3+2];d.push([a*a+b*b+c*c,j])}d.sort(function(p,q){return p[0]-q[0]});
+  for(j=0;j<N;j++)setC(j,DIM);setC(ix,TC[4]);you.position.set(base[ix*3],base[ix*3+1],base[ix*3+2]);
+  for(j=0;j<14;j++){var q=d[j][1];setC(q,AMB);lkPos.set([base[ix*3],base[ix*3+1],base[ix*3+2],base[q*3],base[q*3+1],base[q*3+2]],j*6)}lkG.attributes.position.needsUpdate=true;return ix};
+ api.randomYou=function(){return api.you(Math.floor(Math.random()*N))};
+ api.gen=function(n){var v=null;for(var q=0;q<n&&genN<N-GEN0;q++,genN++){var j=GEN0+genN;v=[base[j*3],base[j*3+1],base[j*3+2]];put(j,v[0],v[1],v[2]);setC(j,TC[5]);gvPos.set([0,0,0,v[0],v[1],v[2]],genN*6)}gvG.attributes.position.needsUpdate=true;gvG.setDrawRange(0,genN*2);return {n:genN,v:v}};
+ api.vecs=function(on){tvec.visible=!!on&&cmode==='generation'};
+ api.layers=function(L){curL=L;var sp=Math.min(1.7,5.4/(L-1));for(var j=0;j<N;j++){var ly=j%L;put(j,(ly-(L-1)/2)*sp,base[j*3+1]*0.8,base[j*3+2]*0.3);setC(j,ly===0?TC[0]:ly===L-1?TC[4]:TC[5])}};
+ api.pulse=function(){if(cmode==='layers')pulseT=RM?-1:0};
+ api.diffuse=function(t,sh){var f=SHAPES[sh%3],c=new THREE.Color();for(var j=0;j<N;j++){var p=f(j);put(j,p[0]*(1-t)+base[j*3]*1.5*t,p[1]*(1-t)+base[j*3+1]*1.5*t,base[j*3+2]*1.5*t);c.copy(AMB).lerp(GREY,t);setC(j,c)}};
+
+ /* ---- ring ---- */
+ var ringG=new THREE.Group();scene.add(ringG);var RR=3.2,nodes=[],rkey='',ractive=-1,ringPick=null;
+ var torus=new THREE.Mesh(new THREE.TorusGeometry(RR,0.02,8,120),new THREE.MeshBasicMaterial({color:0x7C8EA1}));torus.rotation.x=Math.PI/2;torus.position.y=0.02;ringG.add(torus);
+ function pill(n,text,bg){var x=n.cx;x.clearRect(0,0,256,64);x.fillStyle=bg;x.beginPath();x.moveTo(26,8);x.lineTo(230,8);x.arc(230,32,24,-1.5708,1.5708);x.lineTo(26,56);x.arc(26,32,24,1.5708,4.7124);x.fill();
+  x.fillStyle='#fff';x.font='600 26px Barlow, Arial, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text.length>15?text.slice(0,14)+'…':text,128,33);n.tex.needsUpdate=true}
+ function mkLabel(){var cv=document.createElement('canvas');cv.width=256;cv.height=64;var n={cv:cv,cx:cv.getContext('2d'),last:''};n.tex=new THREE.CanvasTexture(cv);n.sp=new THREE.Sprite(new THREE.SpriteMaterial({map:n.tex,transparent:true,depthTest:false}));return n}
+ function ring(labels,o){o=o||{};ringPick=o.onPick||null;
+  var key=labels.join('|');
+  if(key!==rkey){rkey=key;nodes.forEach(function(n){ringG.remove(n.mesh);ringG.remove(n.sp);n.tex.dispose();n.mesh.material.dispose();n.sp.material.dispose()});nodes=[];
+   var geo=new THREE.CylinderGeometry(0.26,0.26,0.3,24);
+   labels.forEach(function(t,ix){var a=ix/labels.length*6.2832,n=mkLabel();n.a=a;n.ts=1;n.ty=0;n.ix=ix;
+    n.mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0x7C8EA1}));n.mesh.position.set(Math.sin(a)*RR,0.15,Math.cos(a)*RR);n.mesh.userData.ix=ix;
+    n.sp.position.set(Math.sin(a)*RR,1.25,Math.cos(a)*RR);n.sp.userData.ix=ix;n.off=0;
+    ringG.add(n.mesh);ringG.add(n.sp);nodes.push(n)})}
+  ractive=(o.active>=0&&o.active<nodes.length)?o.active:-1;
+  var many=nodes.length>14;
+  nodes.forEach(function(n,ix){var act=ix===ractive,done=o.done&&o.done(ix),dropped=o.drop&&o.drop.indexOf(ix)>=0,c=(o.colors&&o.colors[ix])||(dropped?'#E0542B':act?'#C2338B':done?'#2F7FD0':'#7C8EA1');
+   n.mesh.material.color.set(c);n.ts=act?2.6:1;n.ty=dropped?-2.6:0;var bg=dropped?'#A53A1A':act?'#B0126B':'#22384D',st=labels[ix]+bg;if(st!==n.last){n.last=st;pill(n,labels[ix],bg)}
+   var s=act?1.35:(many?0.62:0.9);n.sp.scale.set(2.2*s,0.55*s,1);n.sp.material.opacity=act?1:(many?0.6:0.92);n.ly=act?1.7:(many?(ix%2?0.95:1.3):1.15);n.sp.renderOrder=act?2:1});
+ }
+
+ /* ---- doors ---- */
+ var doorG=new THREE.Group(),panels=[],dIdx=0;scene.add(doorG);
+ (function(){var pm=new THREE.MeshLambertMaterial({color:0x5B6B7E}),pg=new THREE.BoxGeometry(0.18,2.5,0.18),tg=new THREE.BoxGeometry(2.4,0.18,0.18),dg=new THREE.PlaneGeometry(2.04,2.3);
+  for(var d=0;d<6;d++){var z=-d*2.4,L=new THREE.Mesh(pg,pm),Rt=new THREE.Mesh(pg,pm),T=new THREE.Mesh(tg,pm);L.position.set(-1.11,1.25,z);Rt.position.set(1.11,1.25,z);T.position.set(0,2.5,z);
+   var D=new THREE.Mesh(dg,new THREE.MeshBasicMaterial({color:0x2F7FD0,transparent:true,opacity:0.16,side:THREE.DoubleSide,depthWrite:false}));D.position.set(0,1.15,z);panels.push(D);
+   doorG.add(L);doorG.add(Rt);doorG.add(T);doorG.add(D)}
+  var fl=new THREE.Mesh(new THREE.PlaneGeometry(2.4,15),new THREE.MeshBasicMaterial({color:0x7C8EA1,transparent:true,opacity:0.18,side:THREE.DoubleSide}));fl.rotation.x=-Math.PI/2;fl.position.set(0,0,-6);doorG.add(fl)})();
+ function doorState(){panels.forEach(function(D,ix){D.visible=ix>=dIdx;D.material.color.set(ix===dIdx?0xC2338B:0x2F7FD0);D.material.opacity=ix===dIdx?0.5:0.16});tp.set(0,1.35,3.6-dIdx*2.4);tl.set(0,1.2,-9-dIdx*2.4)}
+ var doorCb=null;
+ api.walk=function(){dIdx=(dIdx+1)%7;if(dIdx===6){panels.forEach(function(D){D.visible=false});tp.set(0,1.35,3.6-6*2.4);tl.set(0,1.2,-30)}else doorState();return dIdx};
+
+ /* ---- grade bars ---- */
+ var barsG=new THREE.Group(),bars=[];scene.add(barsG);
+ (function(){var bg=new THREE.BoxGeometry(0.78,1,0.78),eg=new THREE.EdgesGeometry(new THREE.BoxGeometry(0.84,1,0.84));
+  for(var b=0;b<5;b++){var c=TC[[0,4,2,1,5][b]],o={h:0.001,th:0.001,oh:0.001,toh:0.001,cap:1};
+   o.solid=new THREE.Mesh(bg,new THREE.MeshLambertMaterial({color:c}));o.over=new THREE.Mesh(bg,new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.22,depthWrite:false}));
+   o.frame=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x7C8EA1}));o.lab=mkLabel();o.lab.sp.scale.set(1.5,0.375,1);
+   [o.solid,o.over,o.frame,o.lab.sp].forEach(function(m){m.position.x=(b-2)*1.35;barsG.add(m)});o.lab.sp.position.y=-0.4;bars.push(o)}})();
+ api.bars=function(list){show('bars');list.forEach(function(v,ix){var o=bars[ix],U=125;o.cap=v.cap/U;o.th=Math.max(0.001,Math.min(v.earned,v.cap)/U);o.toh=Math.max(0.001,Math.max(0,v.earned-v.cap)/U);
+  o.frame.scale.y=o.cap;o.frame.position.y=o.cap/2;var t=v.name+' '+Math.min(v.earned,v.cap);if(t!==o.lab.last){o.lab.last=t;pill(o.lab,t,'#22384D')}})};
+
+ var kind='cloud';
+ function show(k){kind=k;cloudG.visible=k==='cloud';ringG.visible=k==='ring';doorG.visible=k==='doors';barsG.visible=k==='bars';if(k!=='cloud')ball.visible=false;
+  if(k==='cloud'){tp.set(0,0.6,7.4);tl.set(0,0,0)}else if(k==='ring'){tp.set(0,4.4,8.4);tl.set(0,0.3,0)}else if(k==='bars'){tp.set(0,2.9,9.4);tl.set(0,2.1,0)}}
+ var cloudCb=null;
+ api.cloud=function(m,p){show('cloud');cloudCb=(p&&p.onPick)||null;cloudMode(m,p)};
+ api.ring=function(l,o){show('ring');ring(l,o)};
+ api.doors=function(cb){show('doors');doorCb=cb||null;dIdx=0;doorState()};
+ show('cloud');cloudMode('idle');
+
+ function size(){var w=host.clientWidth||1,h=host.clientHeight||1;R.setSize(w,h,false);aspect=w/h;cam.aspect=aspect;cam.updateProjectionMatrix()}
+ if(window.ResizeObserver)new ResizeObserver(size).observe(host);window.addEventListener('resize',size);size();
+
+ /* ---- pointer: drag to turn, click to pick ---- */
+ var el=R.domElement,drag=null,hold=0,ray=new THREE.Raycaster(),ndc=new THREE.Vector2();ray.params.Points={threshold:0.13};
+ function grp(){return kind==='ring'?ringG:kind==='cloud'?cloudG:kind==='bars'?barsG:null}
+ el.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,m:0};try{el.setPointerCapture(e.pointerId)}catch(_){}});
+ el.addEventListener('pointermove',function(e){if(!drag)return;var d=e.clientX-drag.x;drag.m+=Math.abs(d)+Math.abs(e.clientY-drag.y);drag.x=e.clientX;drag.y=e.clientY;var g=grp();if(g&&drag.m>6){g.rotation.y+=d*0.008;hold=performance.now()+3500;$('#hint').classList.add('off')}});
+ el.addEventListener('pointercancel',function(){drag=null});
+ el.addEventListener('pointerup',function(e){var d=drag;drag=null;if(!d||d.m>6)return;var r=el.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1));ray.setFromCamera(ndc,cam);
+  if(kind==='ring'&&ringPick){var objs=[];nodes.forEach(function(n){objs.push(n.mesh,n.sp)});var h=ray.intersectObjects(objs);if(h.length)ringPick(h[0].object.userData.ix)}
+  else if(kind==='cloud'&&cmode==='recommendation'){var hp=ray.intersectObject(pts);if(hp.length){hp.sort(function(a,b){return a.distanceToRay-b.distanceToRay});api.you(hp[0].index);if(cloudCb)cloudCb(hp[0].index)}}
+  else if(kind==='doors'){var n=api.walk();if(doorCb)doorCb(n)}});
+
+ function wrap(a){return ((a+Math.PI)%6.2832+6.2832)%6.2832-Math.PI}
+ var v=new THREE.Vector3(),pv=new THREE.Vector3();
+ function frame(t){requestAnimationFrame(frame);if(document.hidden)return;var k=RM?1:0.085,free=performance.now()<hold;
+  var m=Math.min(1.9,Math.max(1,1.3/aspect));v.copy(tp).sub(tl).multiplyScalar(m).add(tl);
+  if(kind==='doors'&&!RM)v.x+=Math.sin(t/1700)*0.12;
+  cam.position.lerp(v,RM?1:0.06);look.lerp(tl,RM?1:0.06);cam.lookAt(look);
+  if(kind==='cloud'){var j;for(j=0;j<N*3;j++){pos[j]+=(tpos[j]-pos[j])*k;col[j]+=(tcol[j]-col[j])*k}
+   if(pulseT>=0){for(j=0;j<N;j++)if(Math.abs((j%curL)-pulseT)<0.5)HOT.toArray(col,j*3);pulseT+=curL/80;if(pulseT>curL)pulseT=-1}
+   cg.attributes.position.needsUpdate=true;cg.attributes.color.needsUpdate=true;
+   if(!free){if(flat||RM)cloudG.rotation.y+=wrap((flat?0.32:0)-cloudG.rotation.y)*0.08;else cloudG.rotation.y+=0.0028}
+   if(cmode==='anomaly'&&ball.visible){
+    if(bstate==='in'&&!RM){ball.position.add(bv);if(ball.position.length()>0.72){pv.copy(ball.position).normalize();bv.reflect(pv);ball.position.setLength(0.72)}}
+    else if(bstate==='out'){bspeed*=1.09;pv.copy(cam.position).sub(ball.position);var dist=pv.length();ball.position.addScaledVector(pv.normalize(),Math.min(bspeed,dist));
+     if(dist<1.5){pv.copy(ball.position).project(cam);var r=el.getBoundingClientRect();ball.visible=false;bstate='gone';flyBall(r.left+(pv.x+1)/2*r.width,r.top+(1-pv.y)/2*r.height);if(bcb)bcb()}}}}
+  else if(kind==='ring'){if(!free){if(ractive>=0)ringG.rotation.y+=wrap(-nodes[ractive].a-ringG.rotation.y)*(RM?1:0.07);else if(!RM)ringG.rotation.y+=0.0022}
+   nodes.forEach(function(n){var s=n.mesh.scale.y+(n.ts-n.mesh.scale.y)*(RM?1:0.12);n.mesh.scale.y=s;n.off+=(n.ty-n.off)*(RM?1:0.06);n.mesh.position.y=0.15*s+n.off;n.sp.position.y=n.ly+n.off})}
+  else if(kind==='bars'){if(!free)barsG.rotation.y+=wrap(-0.35-barsG.rotation.y)*0.06;
+   bars.forEach(function(o){o.h+=(o.th-o.h)*(RM?1:0.14);o.oh+=(o.toh-o.oh)*(RM?1:0.14);o.solid.scale.y=o.h;o.solid.position.y=o.h/2;o.over.scale.y=o.oh;o.over.position.y=o.cap+o.oh/2;o.over.visible=o.oh>0.01})}
+  R.render(scene,cam)}
+ requestAnimationFrame(frame);
+ return api;
+})();
+
+function bindSaves(root){$$('[data-save]',root).forEach(function(e){var k=e.dataset.save;e.value=S.my[k]||'';e.oninput=function(){S.my[k]=e.value;save()}})}
+
+/* ================= quiz helper ================= */
+function quizHTML(items,opts){return items.map(function(it,i){return '<div class="q"><p class="qs"><span class="qn">'+(i+1)+'</span>'+it.q+'</p><div class="chips">'+
+ opts.map(function(o,j){return '<button type="button" class="chip" data-q="'+i+'" data-o="'+j+'">'+o+'</button>'}).join('')+'</div><p class="qa" hidden></p></div>'}).join('')}
+function quizMount(box,items,opts,onok){box.innerHTML=quizHTML(items,opts);$$('.chip',box).forEach(function(b){b.addEventListener('click',function(){
+ var it=items[+b.dataset.q],o=+b.dataset.o,ok=it.a.indexOf(o)>=0,a=$('.qa',b.parentNode.parentNode);b.classList.add(ok?'ok':'no');a.hidden=false;
+ a.innerHTML=ok?'<strong>'+it.a.map(function(x){return opts[x]}).join(' and ')+'.</strong> '+it.why:'<strong>Not that one.</strong> '+(it.hint||'Look again at what the system produces.');
+ if(ok&&onok)onok(it,o)})})}
+
+var NAMEQ=[
+ {q:'The commissary app suggests items from your past baskets.',a:[4],why:'It predicts what you will want from your history and from shoppers like you.'},
+ {q:'A weather model estimates tomorrow’s crosswind at the runway, in knots.',a:[1],why:'The answer is a number, not a category.',hint:'What does the system produce: a label, a number, a group, a flag, a suggestion, or new content?'},
+ {q:'A fuel-flow reading drifts outside its usual band and maintenance gets an alert.',a:[3],why:'The system learned normal and flagged what broke the pattern.'},
+ {q:'A tool sorts 5,000 open-ended survey comments into themes nobody defined in advance.',a:[2],why:'No labels were given. The system found the groups itself.',hint:'Did anyone tell the system what the categories were?'},
+ {q:'Your phone unlocks when it sees your face.',a:[0],why:'Two categories: you, or not you.'},
+ {q:'A GenAI tool writes the first draft of an award citation.',a:[5],why:'It creates new text. A person still checks every line.'}];
+var TECH=['Traditional machine learning','Deep learning','Reinforcement learning','GenAI'];
+var TECHQ=[
+ {q:'A squadron wants to forecast how many spare tires to stock each quarter from eight years of supply records.',a:[0],why:'Structured data and a regression problem. Deep learning would cost more and explain less.',hint:'Is the data rows and columns, or photos, sound, and free text?'},
+ {q:'A clinic wants to flag possible skin cancer from phone photos of moles.',a:[1],why:'Photos are unstructured. The limit is explainability and regulation: a wrong call costs a life, so a doctor reviews every flag.'},
+ {q:'A delivery drone must learn to hold position in gusting wind.',a:[2],why:'It improves by acting, failing, and getting feedback on each attempt.'},
+ {q:'The education office wants first-draft answers to the 30 questions new students ask most.',a:[3],why:'The task is to write new text. A person checks every answer before it goes out.'},
+ {q:'A field medic’s tablet must turn spoken Japanese into English with no connection.',a:[1],why:'Speech calls for deep learning. The limit is computing: the model has to be small enough to run on the tablet.'}];
+var ENT=['Supports','Contradicts','Cannot tell'];
+var ENTQ=[
+ {q:'“The company delivered early.” Does it support: “The customer received the product ahead of schedule”?',a:[0],why:'The first statement entails the second. If one is true, the other has to be.',hint:'If the first statement is true, what must follow?'},
+ {q:'“The package arrived two days late.” Does it support: “The delivery was on time”?',a:[1],why:'Both cannot be true at once.',hint:'Can both statements be true together?'},
+ {q:'“The driver was polite.” Does it support: “The package arrived early”?',a:[2],why:'Nothing in the first statement settles the second. A good model says so instead of guessing.',hint:'Does the first statement say anything about timing?'}];
+var PATS=['Well-chosen problem','Right technology','Quality data','Domain experts','Ethical review','Careful deployment'];
+var PATD=['A better prediction changes a decision, and the data can support that prediction.','The tool fits the problem type, the data, and the limits.','The training data is accurate and represents real situations.','Doctors, buyers, or mechanics shaped the system. Not only programmers.','Someone checked who could be harmed, and how.','The system was tested in real conditions before going live. Someone monitors it afterward.'];
+var FAILQ=[
+ {q:'Amazon trained a tool to rank job applicants on ten years of past resumes, most of them from men. It learned to downgrade resumes that mentioned women’s organizations. Amazon abandoned it.',a:[2,4],why:'The data reflected past hiring, not the applicants Amazon wanted. A review of who could be harmed would have caught it.',hint:'Look at what the system learned from.'},
+ {q:'A sepsis warning system ran inside medical record software at hundreds of hospitals. A 2021 University of Michigan study found it missed about two-thirds of sepsis cases and sent frequent false alarms.',a:[5],why:'Hospitals turned it on without testing it on their own patients.',hint:'Look at how it reached the hospital floor.'},
+ {q:'Zillow used a pricing algorithm to buy thousands of homes for resale. In 2021 prices moved faster than the model could track. Zillow shut the business down and cut about a quarter of its staff.',a:[0],why:'The business bet everything on a prediction the data could not reliably support. The Judgment box would have priced the mistake.',hint:'Look at what the business asked the prediction to carry.'}];
+var CRISP=[
+ ['Business understanding','What problem are we solving, and how will we know we solved it?','Agree on the problem and on what success looks like, in plain numbers, before touching any data.','The director sets the goal: every urgent order answered within two hours.'],
+ ['Data understanding','What data do we have, and is it any good?','Look hard at the data you have before you trust it.','Three years of work orders exist. Many urgent ones were never marked urgent. Residents write "funny smell," not "gas leak."'],
+ ['Data preparation','What cleaning and reshaping does the data need?','Fix, fill in, and reorganize the data so a system can learn from it.','Staff correct the urgency marks on a sample of old orders and remove the duplicates.'],
+ ['Modeling','Which technique fits, and how well does it perform?','Train a system on the prepared data. The trained system is called a model.','The team trains a model that scores each new order from routine to urgent.'],
+ ['Evaluation','Does the result solve the business problem?','Test the model against the goal from phase 1, not only against how often it is right.','The model is right 94 percent of the time. It still misses one gas leak in five.'],
+ ['Deployment','How do people start using it, and who maintains it?','Put the model in front of the people who will use it, and keep checking it.','Dispatchers see flagged orders first. A supervisor reviews every miss once a month.']];
+var SECT=['The Problem','The Risk','The Tool','The Data','The Check','The Real Case'];
+var EX=[
+ {n:'Opening',r:-1,t:'<p>Bayside Family Dental loses about one appointment in six to no-shows. This paper asks one question: should the clinic use AI to predict which patients will miss their appointments? I look at the problem, the risk, the tool, the data, the human check, and one real case. My answer is go, with two conditions.</p>'},
+ {n:'The Problem',r:0,t:'<p>My field is dental care. Bayside Family Dental is a four-chair clinic modeled on an office where I worked the front desk for two years. Its problem is no-shows. About one in six patients misses an appointment without calling, and each empty chair costs the clinic roughly an hour of paid staff time. The AI application that fits is prediction, and the problem type is classification: a model uses past appointment records to sort each upcoming appointment into likely to show or likely to miss. Staff would call the likely misses first. A chatbot or image tool does not fit, because the problem is knowing who will not show up, not answering questions or reading X-rays.</p>'},
+ {n:'The Risk',r:1,t:'<p>The people affected are the patients. The mistake that matters is a wrong flag. The model marks a reliable patient as a likely no-show, the clinic double-books the slot, and both patients arrive. One of them waits. If the model flags some groups more often, such as patients who ride the bus or work hourly shifts, the same people wait again and again. That is an unfair result even if nobody intended it. The legal issue is privacy. Appointment records are protected health information under HIPAA, so the clinic needs a signed agreement with any vendor that handles them.</p>'},
+ {n:'The Tool',r:2,t:'<p>Bayside Family Dental would use an automated machine learning service from a cloud vendor. The office manager uploads two years of appointment records, and the service builds a model that scores each upcoming appointment for no-show risk. This fits the clinic for three reasons. The clinic has no programmer, and this approach needs none. It charges by use, so the cost stays small for a four-chair office. It works with the spreadsheet export the scheduling software already produces. I rejected hiring a developer to build a custom model. It would cost more than the no-shows do, and nobody on staff could maintain it.</p>'},
+ {n:'The Data',r:3,t:'<p>The clinic needs two years of appointment records: the date, the time, the day of the week, how far ahead the visit was booked, the type of visit, whether the patient confirmed a reminder, and whether the patient showed up. Three things are wrong with it. The scheduling software uses one code for cancellations and no-shows, so the answer the model learns from is muddy. The clinic changed software 14 months ago, and the older records use different field names. New patients have no history at all. Before any training, the office manager separates the two codes, maps the old fields to the new ones, and removes names and birth dates from the export.</p>'},
+ {n:'The Check',r:4,t:'<p>No appointment gets double-booked on the model’s word alone. Each morning the front desk sees the flagged appointments with a risk score. A flag triggers a phone call first. Staff double-book only when the score is high and the patient did not confirm. Once a month the office manager compares the flags with what happened: how many flagged patients showed up, and how many no-shows the model missed. If most flagged patients showed up, the clinic raises the cutoff.</p>'},
+ {n:'The Real Case',r:5,t:'<p>Samorani and colleagues (2022) studied no-show prediction in outpatient scheduling. They found that scheduling built on predicted no-show risk gave Black patients longer waits than other patients, because the system placed them in overbooked slots more often. The model was accurate. The result was still unfair. The lesson for Bayside is to use flags for reminder calls first, and to track wait times by patient group, not only empty chairs.</p><p class="muted">Samorani, M., Harris, S. L., Blount, L. G., Lu, H., &amp; Santoro, M. A. (2022). Overbooked and overlooked: Machine learning and racial bias in medical appointment scheduling. <em>Manufacturing &amp; Service Operations Management, 24</em>(6), 2825–2842. https://papers.ssrn.com/abstract=3467047</p>'},
+ {n:'Recommendation',r:-2,t:'<p><strong>Go, with two conditions.</strong> First, for three months a flag triggers a reminder call and nothing else. Nobody is double-booked until the monthly check shows the flags are right more often than wrong. Second, the clinic tracks wait times by patient group from the first day. The cost is small and the staff can run it. A wrong flag that causes only a phone call hurts nobody.</p>'},
+ {n:'What I Changed',r:-2,t:'<p>After Turn-In 1 feedback, I gave the problem a size: one appointment in six. After Turn-In 2 feedback, I named the option I rejected and why. Writing The Real Case changed my recommendation. My first draft double-booked from the first day. The final version puts double-booking behind a three-month trial.</p>'}];
+var CATS=[{n:'Projects',full:'Weekly projects completed',each:100,max:6,cap:300,def:4},{n:'Capstone',full:'Capstone points earned',each:10,max:20,cap:200,def:18},{n:'Discuss',full:'Discussions completed',each:40,max:8,cap:200,def:6},{n:'Quizzes',full:'Quizzes completed',each:50,max:7,cap:200,def:5},{n:'Sprints',full:'AI Lab Sprints attended',each:20,max:8,cap:100,def:6}];
+
+/* ================= hands-on controls for the six problem types ================= */
+function typeControl(i,box){
+ function R(h){var e=$('#tRead',box);if(e)e.innerHTML=h}
+ if(i===0){box.innerHTML='<label for="tBound">Move the boundary</label><input type="range" id="tBound" min="-2.4" max="2.4" step="0.05" value="0"><p class="read" id="tRead" aria-live="polite"></p><p class="say">Every boundary leaves some cars on the wrong side. The real question is which mistakes you can live with.</p>';
+  G.cloud('classification');var s=$('#tBound');s.oninput=function(){var r=G.boundary(+s.value);if(r)R('On the wrong side: <b>'+(r.miss+r.fa)+'</b> of 360')};s.oninput()}
+ else if(i===1){box.innerHTML='<label for="tReg">Shipping distance</label><input type="range" id="tReg" min="100" max="2000" step="50" value="1000"><p class="read" id="tRead" aria-live="polite"></p><p class="say">No category comes back. The line turns a distance into a number of days.</p>';
+  G.cloud('regression');var s1=$('#tReg');s1.oninput=function(){var x=(+s1.value-1050)/950*2.5;G.reg(x);R((+s1.value).toLocaleString()+' km → predicted delivery: <b>'+(1+(x+2.5)/5*6).toFixed(1)+' days</b>')};s1.oninput()}
+ else if(i===2){box.innerHTML='<label for="tK">How many groups?</label><input type="range" id="tK" min="1" max="6" step="1" value="1"><p class="read" id="tRead" aria-live="polite"></p><p class="say">Before you move the slider, count how many groups you see.</p>';
+  G.cloud('clustering');var s2=$('#tK');s2.oninput=function(){var k=+s2.value;G.kmeans(k);R(k===1?'No groups yet. Nobody told the system what to look for.':'<b>'+k+' groups.</b> You chose the number. The system chose the members.')};s2.oninput()}
+ else if(i===3){box.innerHTML='<label for="tAn">How strict is "normal"?</label><input type="range" id="tAn" min="0.7" max="3" step="0.05" value="1.6"><p class="read" id="tRead" aria-live="polite"></p><div class="row"><button class="btn go" id="tBall" type="button">Break the pattern</button></div><p class="say" id="tSay">The ball is one purchase that looks normal so far. Send it somewhere no purchase has been.</p>';
+  G.cloud('anomaly',{r:1.6});var s3=$('#tAn'),gone=false;s3.oninput=function(){var r=G.anomaly(+s3.value);if(r)R('Flagged: <b>'+r.flag+'</b> · real anomalies caught: <b>'+r.hit+' of 12</b> · false alarms: <b>'+(r.flag-r.hit)+'</b>')};s3.oninput();
+  $('#tBall').onclick=function(){if(gone){G.recall();gone=false;$('#tBall').textContent='Break the pattern';$('#tSay').textContent='The ball is one purchase that looks normal so far. Send it somewhere no purchase has been.';return}
+   G.launch(function(){gone=true;var b=$('#tBall');if(b)b.textContent='Bring it back';var y=$('#tSay');if(y)y.innerHTML='<strong>That purchase left the pattern.</strong> The system never saw the ball before. It only knew what normal looked like.'})}}
+ else if(i===4){box.innerHTML='<div class="row" style="margin:0"><button class="btn go" id="tYou" type="button">Pick another shopper</button></div><p class="read" id="tRead" aria-live="polite"></p><p class="say">Or click any dot on the chart. The system never asks what you like. It looks at who you resemble.</p>';
+  var say=function(){R('You are one of 360 shoppers. <b>14</b> of them are similar enough to base suggestions on.')};G.cloud('recommendation',{onPick:say});$('#tYou').onclick=function(){G.randomYou();say()};say()}
+ else{box.innerHTML='<div class="row" style="margin:0"><button class="btn go" id="tG1" type="button">Generate one</button><button class="btn" id="tG10" type="button">Generate ten</button><button class="btn" id="tGV" type="button" aria-pressed="false">Show every vector</button><button class="btn" id="tG0" type="button">Clear</button></div><p class="read" id="tRead" aria-live="polite"></p><p class="say">The model does not keep the pictures. It keeps their vectors. To make a new image it picks a new vector near the ones it learned, then turns those numbers into pixels. Real models use hundreds or thousands of numbers per image. This chart shows three.</p>';
+  var last=null,g=function(n){var r=null;if(n<0){G.cloud('generation');last=null;$('#tGV').setAttribute('aria-pressed','false')}else r=G.gen(n);if(r&&r.v)last=r.v;
+   R('New images: <b>'+((r&&r.n)||0)+'</b> \u00b7 copies of a training image: <b>0</b>'+(last?'<br>Latest vector: <b>['+last.map(function(x){return x.toFixed(2)}).join(', ')+']</b>':'<br>Each arrow starts at zero and ends at one new image.'))};G.cloud('generation');
+  $('#tG1').onclick=function(){g(1)};$('#tG10').onclick=function(){g(10)};$('#tG0').onclick=function(){g(-1)};
+  $('#tGV').onclick=function(){var b=$('#tGV'),on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));G.vecs(on)};g(0)}
+ box.insertAdjacentHTML('beforeend','<label for="tAns" style="margin-top:14px">Answer this</label><p class="say" style="margin-top:0"><strong>'+TASK[i]+'</strong></p><textarea id="tAns" data-save="type'+i+'" placeholder="Type your answer here"></textarea>');bindSaves(box);
+}
+function showType(i){var m=['classification','regression','clustering','anomaly','recommendation','generation'][i];G.cloud(m,i===3?{r:1.6}:null);
+ if(i===2)setTimeout(function(){if(IDS[S.idx]!=='s-types')G.kmeans(4)},RM?0:900);
+ if(i===3)setTimeout(function(){G.launch()},RM?0:1400);
+ if(i===5)G.gen(40)}
+
+/* ================= screens ================= */
+var IDS=['s-welcome','s-loop','s-hook','s-order','s-types','s-name','s-room','s-canvas','s-judgment','s-crisp','s-data','s-deep','s-gen','s-limits','s-fields','s-language','s-success','s-fail','s-recap','s-break','s-escape','s-due','s-points','s-thread','s-example','s-wrap'];
+var text=$('#text'),cap=$('#cap'),tick=null;
+var LT={left:0,end:0,run:false},BK={left:600,end:0,run:false};
+function tleft(T){return T.run?(T.end-Date.now())/1000:T.left}
+function per(){return Math.max(30,Math.floor((+S.intro||40)*60/names().length))}
+function setCap(t){cap.textContent=t||''}
+
+var MOUNT={
+ 's-welcome':function(){G.cloud('idle');var P=plan();
+  $('#agenda').innerHTML='<tr><th>Time</th><th>What</th><th class="num">Min</th></tr>'+segs().map(function(s){return '<tr><td style="white-space:nowrap">'+clk(P[s.id].start)+'</td><td>'+({welcome:'Welcome and the plan',loop:'The Loop: every student, around the room',lecture:'Lecture: matching AI to the problem','break':'Break',escape:'AI Lab Sprint: the escape room',capstone:'Projects and capstone, with a finished example',wrap:'Wrap'})[s.id]+'</td><td class="num">'+s.min+'</td></tr>'}).join('');
+  var a=$('#setStart'),b=$('#setIntro'),c=$('#setLink');a.value=S.start;b.value=String(S.intro);c.value=S.link;
+  a.onchange=function(){if(a.value){S.start=a.value;save();go(S.idx)}};
+  b.onchange=function(){S.intro=+b.value;save();go(S.idx)};
+  c.onchange=function(){var v=c.value.trim();S.link=/^https:\/\/\S+$/i.test(v)?v:'';c.value=S.link;save()};},
+
+ 's-loop':function(){var ro=$('#loopRoster'),ct=$('#loopCount'),note=$('#loopNote');ro.value=S.roster||ROSTER.join('\n');ct.value=S.count;
+  if(ROSTER.length){ct.hidden=true;$('label[for=loopCount]').hidden=true}
+  function left(){var L=lineup();return L.map(function(n,i){return i}).filter(function(i){return !S.spoken[L[i]]&&i!==S.cur})}
+  function begin(){LT.left=per();LT.end=Date.now()+LT.left*1000;LT.run=true}
+  function give(i){var L=lineup();if(S.cur>=0&&L[S.cur])S.spoken[L[S.cur]]=1;S.cur=i;if(i>=0){delete S.spoken[L[i]];begin()}else LT.run=false;save();paint()}
+  function paint(){var L=lineup(),n=L.length,c=S.cur,nm=c>=0&&c<n?L[c]:null,sp=L.filter(function(x){return S.spoken[x]}).length,rest=left().length,all=!nm&&sp>=n;
+   $('#loopPos').textContent=all?'Loop complete':nm?'Speaker '+(sp+1)+' of '+n:n+' seats · '+mmss(per())+' each';
+   $('#loopName').textContent=all?'Everyone has spoken':nm||'Ready';
+   $('#loopNext').textContent=all?'Done':!nm?'Start the Loop':rest?'Next speaker':'Finish the Loop';$('#loopNext').disabled=all;
+   $('#loopRand').disabled=!rest;$('#loopPause').disabled=!nm;$('#loopPause').textContent=(LT.run||!nm)?'Pause':'Resume';
+   note.disabled=!nm;note.value=nm?(S.notes[nm]||''):'';
+   $('#loopPer').textContent=n+' seats share '+S.intro+' minutes. That is '+mmss(per())+' each.';
+   G.ring(L,{active:nm?c:-1,done:function(i){return !!S.spoken[L[i]]},onPick:function(i){give(i)}});clock()}
+  function clock(){var e=$('#loopClock');if(!e)return;var L=lineup();if(S.cur<0||S.cur>=L.length){e.textContent=mmss(per());e.classList.remove('over');return}
+   var l=tleft(LT);e.textContent=l<=0?'Time':mmss(l);e.classList.toggle('over',l<=0)}
+  $('#loopNext').onclick=function(){var r=left();if(S.cur<0&&r.length){give(r[0]);return}var nx=r.filter(function(i){return i>S.cur})[0];if(nx===undefined)nx=r[0];give(nx===undefined?-1:nx)};
+  $('#loopRand').onclick=function(){var r=left();if(r.length)give(r[Math.floor(Math.random()*r.length)])};
+  $('#loopPause').onclick=function(){if(LT.run){LT.left=tleft(LT);LT.run=false}else{LT.end=Date.now()+LT.left*1000;LT.run=true}paint()};
+  note.oninput=function(){var nm=lineup()[S.cur];if(nm){S.notes[nm]=note.value;save()}};
+  function reset(){S.cur=-1;S.spoken={};LT.run=false;save();paint()}
+  ro.onchange=function(){S.roster=ro.value;S.order=null;reset()};
+  ct.onchange=function(){S.count=Math.min(40,Math.max(2,+ct.value||12));ct.value=S.count;S.order=null;reset()};
+  $('#loopShuffle').onclick=function(){var o=order().slice();for(var i=o.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=o[i];o[i]=o[j];o[j]=t}S.order=o;reset()};
+  $('#loopReset').onclick=reset;
+  if(S.cur>=0&&!LT.run&&!LT.left)LT.left=per();
+  tick=clock;paint();},
+
+ 's-hook':function(){G.cloud('idle')},
+ 's-order':function(){G.cloud('idle')},
+
+ 's-types':function(){var tb=$('#typeTable'),pn=$('#typePanel');
+  tb.innerHTML='<tr><th>Problem type</th><th>What the system does</th></tr>'+TYPES.map(function(t,i){return '<tr data-i="'+i+'"><td style="white-space:nowrap"><button type="button" class="lnk" data-i="'+i+'" aria-pressed="false"><span class="dot" style="background:'+t.c+'"></span>'+t.n+'</button></td><td>'+t.d+'</td></tr>'}).join('');
+  function pick(i){var t=TYPES[i];$$('tr[data-i]',tb).forEach(function(r){r.classList.toggle('hl',+r.dataset.i===i)});$$('.lnk',tb).forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.i===i))});
+   pn.innerHTML='<dt>'+t.n+': what the dots are</dt><dd>'+t.dot+'</dd><dt>Example</dt><dd>'+t.e+'</dd><dt>Data it needs</dt><dd>'+t.need+'</dd>';setCap(t.cap);typeControl(i,$('#typeCtl'))}
+  $$('.lnk',tb).forEach(function(b){b.onclick=function(){pick(+b.dataset.i)}});pick(0);},
+
+ 's-name':function(){G.cloud('idle');quizMount($('#nameQuiz'),NAMEQ,TN,function(it,o){showType(o);setCap(TYPES[o].n+'. '+TYPES[o].cap)})},
+
+ 's-room':function(){var L=lineup(),rows=$('#roomRows'),box=$('#roomChips');
+  box.innerHTML=TYPES.map(function(t,i){return '<button type="button" class="chip" data-i="'+i+'" aria-pressed="false"><span class="dot" style="background:'+t.c+'"></span>'+t.n+'</button>'}).join('');
+  function mine(){var m=S.my.sysType;$$('.chip',box).forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.i===m))});
+   if(m>=0&&m<6){showTypeStatic(m);if(m===2)G.kmeans(4);if(m===5)G.gen(40);setCap('You selected '+TYPES[m].n.toLowerCase()+'. The chart shows a sample of that problem type, not your own system.')}else{G.cloud('idle');setCap('Select a problem type. The chart will show it.')}}
+  $$('.chip',box).forEach(function(b){b.onclick=function(){S.my.sysType=+b.dataset.i;save();mine()}});mine();
+  rows.innerHTML=L.map(function(n,i){var nt=S.notes[n];return '<div class="tag-row"><div><strong>'+esc(n)+'</strong><small>'+(nt?esc(nt):'')+'</small></div><select id="tag'+i+'" aria-label="Problem type for '+esc(n)+'"><option value="-1">Choose the problem type</option>'+TN.map(function(t,j){return '<option value="'+j+'"'+(S.tags[n]===j?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div>'}).join('');
+  function paint(){var cnt=[0,0,0,0,0,0];L.forEach(function(n){var t=S.tags[n];if(t>=0&&t<6)cnt[t]++});
+   $('#roomTally').innerHTML=TYPES.map(function(t,i){return '<span><span class="dot" style="background:'+t.c+'"></span>'+t.n+' '+cnt[i]+'</span>'}).join('')}
+  $$('select',rows).forEach(function(s,i){s.onchange=function(){var v=+s.value;if(v>=0)S.tags[L[i]]=v;else delete S.tags[L[i]];save();paint()}});paint();},
+
+ 's-canvas':function(){G.cloud('idle')},
+ 's-judgment':function(){G.cloud('cutoff');var s=$('#cutoff');
+  s.oninput=function(){var r=G.boundary(+s.value);if(r)$('#cutRead').innerHTML='Missed urgent orders: <b>'+r.miss+'</b> · false alarms: <b>'+r.fa+'</b><br>Damage score, if one miss costs 20 early visits: <b>'+(r.miss*20+r.fa)+'</b>'};s.oninput()},
+
+ 's-crisp':function(){var box=$('#crispChips'),cur=0,names6=['1 Business','2 Data check','3 Data prep','4 Modeling','5 Evaluation','6 Deployment'];
+  box.innerHTML=CRISP.map(function(c,i){return '<button type="button" class="chip" data-i="'+i+'" aria-pressed="false">'+(i+1)+'. '+c[0]+'</button>'}).join('');
+  function pick(i,msg){cur=i;$$('.chip',box).forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.i===i))});
+   $('#crispPanel').innerHTML=(msg?'<p><strong>'+msg+'</strong></p>':'')+'<p class="kicker">Phase '+(i+1)+' of 6 \u00b7 '+CRISP[i][0]+'</p><p class="lede">'+CRISP[i][1]+'</p><dl><dt>What it means</dt><dd>'+CRISP[i][2]+'</dd><dt>In the housing office</dt><dd>'+CRISP[i][3]+'</dd></dl>';
+   G.ring(names6,{active:i,done:function(j){return j<i},onPick:function(j){pick(j)}})}
+  $$('.chip',box).forEach(function(b){b.onclick=function(){pick(+b.dataset.i)}});
+  $('#crispNext').onclick=function(){pick((cur+1)%6,cur===5?'Deployed. Residents change how they write requests, so the team checks the data again. The loop starts over.':'')};
+  $('#crispFail').onclick=function(){pick(0,'Right 94 percent of the time, and it still misses gas leaks. That fails the two-hour goal. The team goes back to phase 1 and asks what "urgent" has to include. This is normal.')};pick(0);},
+
+ 's-data':function(){var a=$('#dStruct'),b=$('#dUnstruct');
+  function pick(s){a.setAttribute('aria-pressed',String(s));b.setAttribute('aria-pressed',String(!s));
+   $('#dataPanel').innerHTML=s?'<p><strong>Structured data fits in rows and columns.</strong> Sales records, sensor readings, maintenance logs. Traditional machine learning handles it with less data, less computing power, and results people can explain.</p>':'<p><strong>Unstructured data does not fit in a table.</strong> Images, audio, video, and free text. No spreadsheet method can read a photo. This is the work deep learning is worth paying for.</p>';
+   G.cloud(s?'structured':'unstructured');setCap(s?'Every case has a row and a column.':'Same cases, no table to hold them. Drag to look around.')}
+  a.onclick=function(){pick(true)};b.onclick=function(){pick(false)};pick(true);},
+
+ 's-deep':function(){var s=$('#layers');G.cloud('layers',{L:3});
+  s.oninput=function(){var L=+s.value,deep=L>3;G.layers(L);$('#layRead').innerHTML='Layers: <b>'+L+'</b> · hidden layers: <b>'+(L-2)+'</b> · this is <b>'+(deep?'deep learning':'a standard neural network')+'</b>';
+   $('#laySay').textContent=deep?'Each layer builds on the one before: edges, then shapes, then a face. This is what reads photos, speech, and free text. It needs far more data and computing power.':'An input layer, one hidden layer, an output layer. Enough for simple patterns in structured data. Fast to train and easier to explain.';
+   setCap('Blue is the input. Magenta is the output. Everything between is hidden.')};
+  $('#pulse').onclick=function(){G.pulse()};s.oninput();},
+
+ 's-gen':function(){var s=$('#noise'),shape=0,timer=null;G.cloud('diffuse',{t:0,shape:0});
+  function set(v){s.value=v;G.diffuse(v/100,shape);$('#noiseRead').innerHTML='Noise: <b>'+Math.round(v)+'%</b> · '+(v<5?'a picture':v>95?'pure noise':'the picture is breaking up');setCap(v>95?'Noise. The picture is gone.':'A picture made of 360 points.')}
+  function run(to){clearInterval(timer);if(RM){set(to);return}timer=setInterval(function(){if(!document.body.contains(s)){clearInterval(timer);return}var v=+s.value,d=to>v?4:-4;if(Math.abs(to-v)<=4){set(to);clearInterval(timer)}else set(v+d)},60)}
+  s.oninput=function(){clearInterval(timer);set(+s.value)};
+  $('#genNoise').onclick=function(){run(100)};
+  $('#genBack').onclick=function(){if(+s.value>90)shape=(shape+1)%3;run(0)};
+  set(0);},
+
+ 's-limits':function(){G.cloud('structured');quizMount($('#techQuiz'),TECHQ,TECH,function(it,o){if(o===3){G.cloud('generation');G.gen(60)}else if(o===1){G.cloud('layers',{L:9});G.pulse()}else G.cloud(o===0?'structured':'unstructured')})},
+
+ 's-fields':function(){function pick(t,name){showTypeStatic(t);setCap(name+': '+TYPES[t].n.toLowerCase()+'.')}
+  $$('#fieldTable .lnk').forEach(function(b){b.onclick=function(){pick(+b.dataset.t,b.textContent)}});G.cloud('classification');setCap('One problem type, classification, built three different ways.')},
+
+ 's-language':function(){G.cloud('classification');quizMount($('#entQuiz'),ENTQ,ENT,function(it,o){G.cloud('clustering');G.kmeans(3)})},
+
+ 's-success':function(){var box=$('#patChips');
+  box.innerHTML=PATS.map(function(p,i){return '<button type="button" class="chip" data-i="'+i+'" aria-pressed="false">'+p+'</button>'}).join('');
+  function pick(i){$$('.chip',box).forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.i===i))});
+   $('#patPanel').innerHTML='<p class="kicker">Pattern '+(i+1)+' of 6</p><p class="lede">'+PATD[i]+'</p>';G.ring(PATS,{active:i,done:function(){return true},onPick:pick})}
+  $$('.chip',box).forEach(function(b){b.onclick=function(){pick(+b.dataset.i)}});pick(0);},
+
+ 's-fail':function(){var hit=[];G.ring(PATS,{active:-1,done:function(){return true}});
+  quizMount($('#failQuiz'),FAILQ,PATS,function(it){it.a.forEach(function(x){if(hit.indexOf(x)<0)hit.push(x)});G.ring(PATS,{active:-1,done:function(){return true},drop:hit})})},
+ 's-recap':function(){G.cloud('idle')},
+
+ 's-break':function(){G.cloud('clustering');setTimeout(function(){if(IDS[S.idx]==='s-break')G.kmeans(4)},RM?0:900);setCap('Groups form on their own. Find yours: teams of three.');
+  function paint(){var e=$('#brkClock');if(!e)return;var l=tleft(BK);e.textContent=l<=0?'Back in your seats':mmss(l);e.classList.toggle('over',l<=0);
+   $('#brkGo').textContent=BK.run?'Pause':(BK.left<600?'Resume':'Start the break');var d=new Date(BK.end);
+   $('#brkBack').textContent=BK.run&&l>0?'Class resumes at '+clk(d.getHours()*60+d.getMinutes()+(d.getSeconds()>0?1:0))+'.':''}
+  $('#brkGo').onclick=function(){if(BK.run){BK.left=Math.max(0,tleft(BK));BK.run=false}else{if(BK.left<=0)BK.left=600;BK.end=Date.now()+BK.left*1000;BK.run=true}paint()};
+  $('#brkReset').onclick=function(){BK.run=false;BK.left=600;paint()};tick=paint;paint();},
+
+ 's-escape':function(){G.doors(function(n){setCap(n===0?'Six locked doors. Click the corridor to walk to the next one.':n>=6?'Out. Fifty minutes on the clock says your team can do the same.':'Door '+(n+1)+' of 6. Each one opens with a code your team builds from its answers.')});
+  var a=$('#escLink');if(S.link){a.href=S.link;a.hidden=false;$('#escNo').hidden=true}},
+
+ 's-due':function(){G.ring(SECT,{active:0,done:function(){return false}})},
+
+ 's-points':function(){var box=$('#calc');
+  box.innerHTML=CATS.map(function(c,i){return '<label for="calc'+i+'" id="calcL'+i+'"></label><input type="range" id="calc'+i+'" min="0" max="'+c.max+'" step="1" value="'+c.def+'">'}).join('');
+  function paint(){var earned=0,count=0,list=CATS.map(function(c,i){var v=+$('#calc'+i).value,e=v*c.each,k=Math.min(e,c.cap);earned+=e;count+=k;
+    $('#calcL'+i).textContent=c.full+': '+(i===1?e+' of 200':v+' of '+c.max)+' · counts '+k+' of '+c.cap;return {name:c.n,earned:e,cap:c.cap}});
+   $('#calcRead').innerHTML='Earned: <b>'+earned.toLocaleString()+'</b> · counts toward your grade: <b>'+count.toLocaleString()+' of 1,000</b>'+(earned>count?'<br>'+(earned-count)+' points sit above a cap. They cover a low score somewhere else.':'');
+   G.bars(list)}
+  $$('input',box).forEach(function(s){s.oninput=paint});paint();},
+
+ 's-thread':function(){function pick(i){G.ring(SECT,{active:i,done:function(j){return j<i},onPick:pick});$$('#threadTable .lnk').forEach(function(b){b.style.color=+b.dataset.i===i?'var(--mag)':''})}
+  $$('#threadTable .lnk').forEach(function(b){b.onclick=function(){pick(+b.dataset.i)}});pick(0);},
+
+ 's-example':function(){var box=$('#exChips');
+  box.innerHTML=EX.map(function(e,i){return '<button type="button" class="chip" data-i="'+i+'" aria-pressed="false">'+e.n+'</button>'}).join('');
+  function pick(i){var e=EX[i];$$('.chip',box).forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.i===i))});
+   $('#exPanel').innerHTML='<p class="kicker">'+e.n+'</p>'+e.t;G.ring(SECT,{active:e.r>=0?e.r:-1,done:function(j){return e.r===-2||j<e.r},onPick:function(j){pick(j+1)}})}
+  $$('.chip',box).forEach(function(b){b.onclick=function(){pick(+b.dataset.i)}});pick(0);},
+ 's-wrap':function(){G.cloud('idle')}
+};
+function showTypeStatic(t){G.cloud(['classification','regression','clustering','anomaly','recommendation','generation'][t],t===3?{r:1.6}:null)}
+
+function segOf(id){return $('#'+id).dataset.seg}
+function rail(){var P=plan(),cur=segOf(IDS[S.idx]),seen=false;
+ $('#rail').innerHTML=segs().map(function(s){var on=s.id===cur;if(on)seen=true;return '<button type="button" class="seg'+(on?' on':seen?'':' past')+'" data-seg="'+s.id+'"'+(on?' aria-current="step"':'')+' style="flex-grow:'+Math.max(2,s.min/5)+'"><b>'+s.name+'</b><span>'+clk(P[s.id].start)+' · '+s.min+' min</span></button>'}).join('');
+ $$('.seg',$('#rail')).forEach(function(b){b.onclick=function(){for(var i=0;i<IDS.length;i++)if(segOf(IDS[i])===b.dataset.seg){go(i);break}}})}
+function now(){var d=new Date(),m=d.getHours()*60+d.getMinutes(),P=plan(),seg=P[segOf(IDS[S.idx])],t=clk(m);
+ var st=startMin();if(m>=st-5&&m<=st+185){var left=seg.end-m;t+=' · '+seg.name+(left>=0?' ends '+clk(seg.end)+' · '+left+' min left':' ran '+(-left)+' min over')}
+ else t+=' · '+seg.name+' is planned for '+clk(seg.start)+' to '+clk(seg.end);
+ $('#now').textContent=t}
+function go(i){i=Math.max(0,Math.min(IDS.length-1,i));S.idx=i;save();tick=null;var id=IDS[i],tp=$('#'+id);
+ document.body.classList.toggle('noview',tp.dataset.view==='off');text.innerHTML='';text.appendChild(tp.content.cloneNode(true));var P=plan();
+ $$('[data-time]',text).forEach(function(e){var p=e.dataset.time.split('.');e.textContent=clk(P[p[0]][p[1]])});
+ setCap(tp.dataset.cap);if(MOUNT[id])MOUNT[id]();bindSaves(text);
+ rail();now();$('#count').textContent=(i+1)+' / '+IDS.length;$('#prev').disabled=i===0;$('#next').disabled=i===IDS.length-1;
+ text.scrollTop=0;var st=$('.stage');if(st)st.scrollTop=0;var on=$('.seg.on');if(on&&on.scrollIntoView&&$('#rail').scrollWidth>$('#rail').clientWidth)on.scrollIntoView({block:'nearest',inline:'center'})}
+function instPaint(){document.body.classList.toggle('inst',!!S.inst);$('#instBtn').setAttribute('aria-pressed',String(!!S.inst))}
+$('#instBtn').onclick=function(){S.inst=!S.inst;save();instPaint();go(S.idx)};instPaint();
+$('#prev').onclick=function(){go(S.idx-1)};$('#next').onclick=function(){go(S.idx+1)};
+document.addEventListener('keydown',function(e){var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||e.altKey||e.ctrlKey||e.metaKey)return;
+ if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();go(S.idx+1)}else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(S.idx-1)}});
+setInterval(function(){if(tick)tick()},250);setInterval(now,15000);
+go(S.idx||0);
+})();
+</script>
+
+</body>
+</html>
